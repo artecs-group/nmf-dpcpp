@@ -63,32 +63,11 @@ double gettime() {
 }
 
 
-real *get_memory1D(int nx) {
-	int i;
-	real *buffer;	
-
-	if( (buffer=(real *)malloc(nx*sizeof(real)))== NULL ) {
-		fprintf( stderr, "ERROR in memory allocation\n" );
-		return( NULL );
-	}
-
-	for( i=0; i<nx; i++ )
-		buffer[i] = (real)(i*10);
-
-	return( buffer );
-}
-
-
 void init_memory1D(int nx, buffer<real, 1> *buff) {
     auto memory = buff.get_access<sycl_write>();
 
 	for(int i = 0; i < nx; i++)
 		memory[i] = (real)(i*10);
-}
-
-
-void delete_memory1D(real *buffer) { 
-	free(buffer);
 }
 
 
@@ -101,20 +80,12 @@ unsigned char *get_memory1D_uchar(int nx) {
 		return( NULL );
 	}
 
-	for( i=0; i<nx; i++ )
-		buffer[i] = (int)(0);
+	// for( i=0; i<nx; i++ )
+	// 	buffer[i] = (int)(0);
+
+    std::fill(std::begin(buffer), std::end(buffer), 0);
 
 	return( buffer );
-}
-
-
-void init_memory1D_uchar(int nx, buffer<unsigned char, 1> *buff) {
-    auto memory = buff.get_access<sycl_write>();
-
-	// for(int i = 0; i < nx; i++)
-	// 	memory[i] = (int)(0);
-
-    std::fill(std::begin(memory), std::end(memory), 0);
 }
 
 
@@ -123,7 +94,7 @@ void delete_memory1D_uchar( unsigned char *buffer ) {
 }
 
 
-real **get_memory2D(int nx, int ny) { 
+real **get_memory2D(int nx, int ny) {
 	int i,j;
 	real **buffer;
 
@@ -138,12 +109,12 @@ real **get_memory2D(int nx, int ny) {
 		return( NULL );
 	}
 
-	for( i=1; i<nx; i++ )
+	for (i = 1; i < nx; i++)
 		buffer[i] = buffer[i-1] + ny;
 
-	for( i=0; i<nx; i++ )
-		for( j=0; j<ny; j++ )
-			buffer[i][j] = (real)(i*100+j);
+	for(i = 0; i < nx; i++)
+		for(j = 0; j < ny; j++)
+			buffer[i][j] = (real)(i*100 + j);
 
 	return( buffer );
 }
@@ -154,11 +125,11 @@ void init_memory2D(int nx, int ny, buffer<real, 2> *buff) {
     auto memory = buff.get_access<sycl_read_write>();
 
 	for(i = 1; i < nx; i++)
-		buffer[i] = buffer[i-1] + ny;
+		memory[i] = memory[i-1] + ny;
 
 	for(i = 0; i < nx; i++)
 		for(j = 0; j < ny; j++)
-			buffer[i][j] = (real)(i*100 + j);
+			memory[i][j] = (real)(i*100 + j);
 }
 
 
@@ -167,20 +138,14 @@ void delete_memory2D(real **buffer) {
 }
 
 
-void matrix_copy1D_uchar(buffer<unsigned char, 1> *b_in, 
-    buffer<unsigned char, 1> *b_out, int nx )
-{
-    auto in = b_in.get_access<sycl_read>();
-    auto out = b_out.get_access<sycl_write>();
-    
+void matrix_copy1D_uchar(unsigned char *in, unsigned char *out, int nx) {
 	for (int i = 0; i < nx; i++)
 		out[i] = in[i];
 }
 
 
-void matrix_copy2D(buffer<real, 2> *b_in, buffer<real, 2> *b_out, int nx, int ny) {
+void matrix_copy2D(buffer<real, 2> *b_in, real **out, int nx, int ny) {
 	auto in = b_in.get_access<sycl_read>();
-    auto out = b_out.get_access<sycl_write>();
 	
 	for (int i = 0; i < nx; i++)
 		for(int j = 0; j < ny; j++)
@@ -327,13 +292,11 @@ void initV(int N, int M, char* file_name, buffer<real, 2> *b_V) {
 
 
 /* Gets the difference between matrix_max_index_h and conn_last matrices. */
-int get_difference(buffer<unsigned char, 1> *b_classification, 
-    buffer<unsigned char, 1> *b_last_classification, int nx)
+int get_difference(unsigned char *classification, 
+    unsigned char *last_classification, int nx)
 {
 	int diff;
 	int conn, conn_last;
-    auto classification = b_classification.get_access<sycl_read>();
-    auto last_classification = b_last_classification.get_access<sycl_read>();
 	
 	diff = 0;
 	for(int i = 0; i < nx; i++)
@@ -348,14 +311,11 @@ int get_difference(buffer<unsigned char, 1> *b_classification,
 
 
 /* Get consensus from the classificacion vector */
-void get_consensus(buffer<unsigned char, 1> *b_classification, 
-    buffer<unsigned char, 1> *b_consensus, int nx)
+void get_consensus(unsigned char *classification, unsigned char *consensus,
+    int nx)
 {
 	unsigned char conn;
 	int ii = 0;
-
-    auto classification = b_classification.get_access<sycl_read>();
-    auto consensus = b_consensus.get_access<sycl_write>();
 	
 	for(int i = 0; i < nx; i++)
 		for(int j = i+1; j < nx; j++) {
@@ -367,10 +327,9 @@ void get_consensus(buffer<unsigned char, 1> *b_classification,
 
 
 /* Obtain the classification vector from the Ht matrix */
-void get_classification(buffer<real, 2> *b_Htras, 
-    buffer<unsigned char, 1> *b_classification, int M, int K)
+void get_classification(buffer<real, 2> *b_Htras, unsigned char *classification,
+    int M, int K)
 {
-    auto classification = b_classification.get_access<sycl_write>();
     auto Htras = b_Htras.get_access<sycl_read>();
 	real max;
 	
@@ -382,24 +341,6 @@ void get_classification(buffer<real, 2> *b_Htras,
 				max = Htras[i][j];
 			}
 	}
-}
-
-// TODO: updated to run in the device (add it in the kernel file)
-void adjust_WH(buffer<real, 2> *b_W, buffer<real, 2> *b_Ht, int N, int M, int K) {
-	auto W = b_W.get_access<sycl_read_write>();
-    auto b_Ht = b_Ht.get_access<sycl_read_write>();
-    
-    int i, j;
-	
-	for (i = 0; i < N; i++)
-		for (j = 0; j < K; j++)
-			if (W[i][j] < eps)
-				W[i][j] = eps;
-				
-	for (i = 0; i < M; i++)
-		for (j = 0; j < K; j++)
-			if (Ht[i][j] < eps)
-				Ht[i][j] = eps;				 
 }
 
 
@@ -446,16 +387,12 @@ real get_Error(buffer<real, 2> *b_V, buffer<real, 2> *b_W,
 }
 
 
-void writeSolution(buffer<real, 2> *b_W, rbuffer<real, 2> *b_Ht, 
-    buffer<unsigned char, 1> *b_consensus, int N, int M, int K, int nTests)
+void writeSolution(real **W, real**Ht, unsigned char *consensus, int N, int M,
+    int K, int nTests)
 {
 	FILE *fOut;
 	char file[100];
 	real **H;
-
-    auto Ht = b_Ht.get_access<sycl_read>();
-    auto W = b_W.get_access<sycl_read>();
-    auto consensus = b_consensus.get_access<sycl_read>();
 	
 	H = get_memory2D(K, M);
 	for (int i = 0; i < K; i++)
@@ -478,6 +415,25 @@ void writeSolution(buffer<real, 2> *b_W, rbuffer<real, 2> *b_Ht,
 
 double tW0=0.0, tW1=0.0, tW2=0.0, tW3=0.0, tW4=0.0;
 double tH0=0.0, tH1=0.0, tH2=0.0, tH3=0.0, tH4=0.0;
+
+
+// TODO: updated to run in the device (add it in the kernel file)
+void adjust_WH(buffer<real, 2> *b_W, buffer<real, 2> *b_Ht, int N, int M, int K) {
+	auto W = b_W.get_access<sycl_read_write>();
+    auto b_Ht = b_Ht.get_access<sycl_read_write>();
+    
+    int i, j;
+	
+	for (i = 0; i < N; i++)
+		for (j = 0; j < K; j++)
+			if (W[i][j] < eps)
+				W[i][j] = eps;
+				
+	for (i = 0; i < M; i++)
+		for (j = 0; j < K; j++)
+			if (Ht[i][j] < eps)
+				Ht[i][j] = eps;				 
+}
 
 
 // TODO: updated to run in the device
@@ -535,6 +491,10 @@ int main(int argc, char *argv[]) {
 	int nTests, niters;
 	int i,j;
 
+	real **W_best, **Htras_best;
+	unsigned char *classification, *last_classification;
+	unsigned char *consensus;
+
 	int N;
 	int M;
 	int K;
@@ -545,7 +505,6 @@ int main(int argc, char *argv[]) {
 	int diff, inc;
 	
 	double time0, time1;
-	double timeGPU2CPU, timeGPU1, timeGPU0;
 	
 	real error;
 	real error_old = 9.99e+50;
@@ -570,39 +529,27 @@ int main(int argc, char *argv[]) {
 
     buffer<real, 2> b_V{ range<2>{N, M} };
     buffer<real, 2> b_W{ range<2>{N, Kpad} };
-    buffer<real, 2> b_W_best{ range<2>{N, Kpad} };
-
     buffer<real, 2> b_Htras{ range<2>{M, Kpad} };
-    buffer<real, 2> b_Htras_best{ range<2>{M, Kpad} };
-
-    buffer<unsigned char, 1> b_classification{ range<1>{M} };
-    buffer<unsigned char, 1> b_last_classification{ range<1>{M} };
-    buffer<unsigned char, 1> b_consensus{ range<1>{M*(M-1)/2} };
-
     buffer<real, 2> b_WH{ range<2>{N, M} };
     buffer<real, 2> b_Haux{ range<2>{M, Kpad} };
     buffer<real, 2> b_Waux{ range<2>{N, Kpad} };
-
     buffer<real, 1> b_acumm_W{ range<1>{Kpad} };
     buffer<real, 1> b_acumm_H{ range<1>{Kpad} };
 
     initV(N, M, file_name, &b_V);
-
     init_memory2D(N, Kpad, &b_W);
     init_memory2D(M, Kpad, &b_Htras);
-    init_memory2D(N, Kpad, &b_W_best);
-    init_memory2D(M, Kpad, &b_Htras_best);
-
-    init_memory1D_uchar(M, &b_classification);
-    init_memory1D_uchar(M, &b_last_classification);
-    init_memory1D_uchar(M*(M-1)/2, &b_consensus);
-
     init_memory2D(N, M, &b_WH);
     init_memory2D(M, Kpad, &b_Haux);
     init_memory2D(N, Kpad, &b_Waux);
-
     init_memory1D(Kpad, &b_acumm_W);
     init_memory1D(Kpad, &b_acumm_H);
+
+    W_best              = get_memory2D(N, Kpad);
+    Htras_best          = get_memory2D(M, Kpad);
+    classification      = get_memory1D_uchar(M);
+	last_classification = get_memory1D_uchar(M);
+	consensus           = get_memory1D_uchar(M*(M-1)/2);
 
 	/**********************************/
 	/******     MAIN PROGRAM     ******/
@@ -630,10 +577,10 @@ int main(int argc, char *argv[]) {
 			adjust_WH(&b_W, &b_Htras, N, M, K, Kpad);
 
 			/* Test of convergence: construct connectivity matrix */
-			get_classification(&b_Htras, &b_classification, M, K);
+			get_classification(&b_Htras, classification, M, K);
 
-			diff = get_difference(&b_classification, &b_last_classification, M);
-			matrix_copy1D_uchar(&b_classification, &b_last_classification, M);
+			diff = get_difference(classification, last_classification, M);
+			matrix_copy1D_uchar(classification, last_classification, M);
 
 			if(diff > 0) 	/* If connectivity matrix has changed, then: */
 				inc = 0;  /* restarts count */
@@ -649,14 +596,14 @@ int main(int argc, char *argv[]) {
 		}
 
 		/* Get Matrix consensus */
-		get_consensus(&b_classification, &b_consensus, M);
+		get_consensus(classification, consensus, M);
 
 		/* Get variance of the method error = |V-W*H| */
 		error = get_Error(&b_V, &b_W, &b_Htras, N, M, K);
 		if (error < error_old) {
 			printf("Better W and H, Error %e Test=%i, Iter=%i\n", error, test, iter*NITER_TEST_CONV);
-			matrix_copy2D(&b_W, &b_W_best, N, K);
-			matrix_copy2D(&b_Htras, &b_Htras_best, M, K);
+			matrix_copy2D(&b_W, W_best, N, K);
+			matrix_copy2D(&b_Htras, Htras_best, M, K);
 			error_old = error;
 		}		
 	}
@@ -664,11 +611,17 @@ int main(int argc, char *argv[]) {
 	/**********************************/
 	/**********************************/
 
-	
-	//printf("\n\n\n EXEC TIME %f (s). (CPU2GPU %f s)      N=%i M=%i K=%i Tests=%i (%i)\n", (time1-time0)/1000000, timeGPU2CPU/1000000, N, M, K, nTests, sizeof(real));
+	printf("\n\n\n EXEC TIME %f (s). (CPU2GPU %f s)      N=%i M=%i K=%i Tests=%i (%i)\n", (time1-time0)/1000000, timeGPU2CPU/1000000, N, M, K, nTests, sizeof(real));
 	printf("tH0=%f tH1=%f tH2=%f tH3=%f\n", tH0/1000000, tH1/1000000, tH2/1000000, tH3/1000000);
 	printf("tW0=%f tW1=%f tW2=%f tW3=%f\n", tW0/1000000, tW1/1000000, tW2/1000000, tW3/1000000);
 
 	/* Write the solution of the problem */
-	writeSolution(&b_W_best, &b_Htras_best, &b_consensus, N, M, K, nTests);
+	writeSolution(W_best, Htras_best, consensus, N, M, K, nTests);
+
+    /* Free memory used */
+	delete_memory2D(W_best);
+	delete_memory2D(Htras_best);
+	delete_memory1D_uchar(classification);
+	delete_memory1D_uchar(last_classification);
+	delete_memory1D_uchar(consensus);
 }
