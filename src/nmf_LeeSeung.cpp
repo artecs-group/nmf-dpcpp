@@ -1,21 +1,21 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
-#include <cuda.h>
-#include "cublas.h"
-#include "kernels.h"
 #include <sys/times.h>
 #include <malloc.h>
 #include <string.h>
 #include <time.h>
 #include <sys/time.h>
+#include <CL/sycl.hpp>
+
+
+using namespace cl::sycl;
 
 //#define RANDOM
-#define pinned_memory
-#endif
+//const bool pinned_memory = true;
 #define DEBUG
-#define verbose 0
-#define PAD 32
+const bool verbose = false;
+const char PAD = 32;
 
 #if REAL <=4
 	#define real float
@@ -26,12 +26,40 @@
 	#define rsqrt sqrtf
 
 /* Number of iterations before testing convergence (can be adjusted) */
-#define NITER_TEST_CONV 10
+const int NITER_TEST_CONV = 10;
 
 /* Spacing of floating point numbers. */
-real eps=2.2204e-16;
+//const real eps = 2.2204e-16;
 
-void printMATRIX(real **m, int I, int J);
+constexpr access::mode sycl_read       = access::mode::read;
+constexpr access::mode sycl_write      = access::mode::write;
+constexpr access::mode sycl_read_write = access::mode::read_write;
+constexpr access::mode sycl_discard_read_write = access::mode::discard_read_write;
+constexpr access::mode sycl_discard_write = access::mode::discard_write;
+
+// CUDA device selector
+class CUDASelector : public device_selector {
+    public:
+        int operator()(const device &Device) const override {
+            const std::string DriverVersion = Device.get_info<info::device::driver_version>();
+
+            if (Device.is_gpu() && (DriverVersion.find("CUDA") != std::string::npos))
+                //std::cout << " CUDA device found " << std::endl;
+                return 1;
+
+            return -1;
+        }
+};
+
+// Intel iGPU
+class NEOGPUDeviceSelector : public device_selector {
+    public:
+        int operator()(const device &Device) const override {
+            const std::string DeviceName = Device.get_info<info::device::name>();
+            //const std::string DeviceVendor = Device.get_info<info::device::vendor>();
+            return Device.is_gpu() && (DeviceName.find("HD Graphics NEO") != std::string::npos);
+        }
+};
 
 
 double gettime() {
