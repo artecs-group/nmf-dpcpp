@@ -51,16 +51,6 @@ class CUDASelector : public device_selector {
         }
 };
 
-// Intel iGPU
-class NEOGPUDeviceSelector : public device_selector {
-    public:
-        int operator()(const device &Device) const override {
-            const std::string DeviceName = Device.get_info<info::device::name>();
-            //const std::string DeviceVendor = Device.get_info<info::device::vendor>();
-            return Device.is_gpu() && (DeviceName.find("HD Graphics NEO") != std::string::npos);
-        }
-};
-
 
 double gettime() {
 	double final_time;
@@ -121,8 +111,10 @@ unsigned char *get_memory1D_uchar(int nx) {
 void init_memory1D_uchar(int nx, buffer<unsigned char, 1> *buff) {
     auto memory = buff.get_access<sycl_write>();
 
-	for(int i = 0; i < nx; i++)
-		memory[i] = (int)(0);
+	// for(int i = 0; i < nx; i++)
+	// 	memory[i] = (int)(0);
+
+    std::fill(std::begin(memory), std::end(memory), 0);
 }
 
 
@@ -392,7 +384,7 @@ void get_classification(buffer<real, 2> *b_Htras,
 	}
 }
 
-
+// TODO: updated to run in the device (add it in the kernel file)
 void adjust_WH(buffer<real, 2> *b_W, buffer<real, 2> *b_Ht, int N, int M, int K) {
 	auto W = b_W.get_access<sycl_read_write>();
     auto b_Ht = b_Ht.get_access<sycl_read_write>();
@@ -488,7 +480,7 @@ double tW0=0.0, tW1=0.0, tW2=0.0, tW3=0.0, tW4=0.0;
 double tH0=0.0, tH1=0.0, tH2=0.0, tH3=0.0, tH4=0.0;
 
 
-// TODO: change
+// TODO: updated to run in the device
 void nmf(int niter, real *d_V, real *d_WH, real *d_W, real *d_Htras, 
     real *d_Waux, real *d_Haux,
 	real *d_accW, real *d_accH,
