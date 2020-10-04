@@ -257,22 +257,19 @@ void printMATRIX(real **m, int I, int J) {
 }
 
 
-real **getV(char* file_name, int N, int M) {
+void initV(int N, int M, char* file_name, buffer<real, 2> b_V) {
 	char *data;
 	FILE *fIn;
 	
 	/* Local variables */
 	int i, j;
-	int size_V;
-	real **V;
+	const int size_V = N*M;
+    auto V = b_V.get_access<sycl_write>();
 
 	fIn = fopen(file_name, "r");
 
-	V = get_memory2D(N, M);
-	size_V = N*M;
-
 #ifndef RANDOM 
-	if (sizeof(real)==sizeof(float)) {
+	if (sizeof(real) == sizeof(float)) {
 		fread(&V[0][0], sizeof(float), size_V, fIn);
 		fclose(fIn);
 	} 
@@ -300,8 +297,6 @@ real **getV(char* file_name, int N, int M) {
             V[i][j] = ((real)(rand()))/RAND_MAX;
 
 #endif
-
-	return(V);
 }
 
 
@@ -482,28 +477,12 @@ void nmf_GPU(int niter, real *d_V, real *d_WH, real *d_W, real *d_Htras,
 int main(int argc, char *argv[]) {
 	int nTests, niters;
 	int i,j;
-	real obj;
-	real **V;
-	real **W, **W_best;
-	real **Htras, **Htras_best;
-	unsigned char *classification, *last_classification;
-	unsigned char *consensus; /* upper half-matrix size M*(M-1)/2 */
 
 	/* Auxiliares para el computo */
 	real **WH;
 	real **Haux,  **Waux;
 	real *acumm_W;
 	real *acumm_H;
-	
-	//For GPU
-	real *d_V;
-	real *d_W;
-	real *d_Htras;
-	real *d_WH;
-	real *d_Haux;
-	real *d_Waux;
-	real *d_acumm_W;
-	real *d_acumm_H;
 
 	int N;
 	int M;
@@ -518,7 +497,7 @@ int main(int argc, char *argv[]) {
 	double timeGPU2CPU, timeGPU1, timeGPU0;
 	
 	real error;
-	real error_old=9.99e+50;
+	real error_old = 9.99e+50;
 
     setbuf( stdout, NULL );
 	
@@ -527,7 +506,7 @@ int main(int argc, char *argv[]) {
 		N              = atoi(argv[2]);
 		M              = atoi(argv[3]);
 		K              = atoi(argv[4]);
-		Kpad           = K+(PAD-K%PAD);
+		Kpad           = K + (PAD - K % PAD);
 		nTests         = atoi(argv[5]);
 		stop_threshold = atoi(argv[6]);
 	} 
@@ -536,38 +515,32 @@ int main(int argc, char *argv[]) {
 		return(0);
 	}
 
-	V = getV(file_name, N, M);
-	printf("file=%s\nN=%i M=%i K=%i nTests=%i stop_threshold=%i\n", file_name, N, M, K, nTests, stop_threshold);	
+    printf("file=%s\nN=%i M=%i K=%i nTests=%i stop_threshold=%i\n", file_name, N, M, K, nTests, stop_threshold);
 
-	W          = get_memory2D(N, Kpad);
-	Htras      = get_memory2D(M, Kpad);
-	W_best     = get_memory2D(N, Kpad);
-	Htras_best = get_memory2D(M, Kpad);
+    buffer<real, 2> b_V{ range<2>{N, M} };
+    buffer<real, 2> b_W{ range<2>{N, Kpad} };
+    buffer<real, 2> b_W_best{ range<2>{N, Kpad} };
+
+    buffer<real, 2> b_Htras{ range<2>{M, Kpad} };
+    buffer<real, 2> b_Htras_best{ range<2>{M, Kpad} };
+    
+    buffer<unsigned char, 1> b_classification{ range<1>{M} };
+    buffer<unsigned char, 1> b_last_classification{ range<1>{M} };
+    buffer<unsigned char, 1> b_consensus{ range<1>{M*(M-1)/2} };
+
+    initV(N, M, file_name, b_V);	
+
 	
 	WH         = get_memory2D(N, M);
-	
+
 	Haux       = get_memory2D(M, Kpad);
 	Waux       = get_memory2D(N, Kpad);
 	
 	acumm_W    = get_memory1D(Kpad);
 	acumm_H    = get_memory1D(Kpad);
-	
-	classification      = get_memory1D_uchar(M);
-	last_classification = get_memory1D_uchar(M);
-	consensus           = get_memory1D_uchar(M*(M-1)/2);
 
-	cublasInit();
-	cudaMalloc((void **)&d_V,      N*M*sizeof(real));
-	cudaMemcpy(d_V, V[0], N*M*sizeof(real), cudaMemcpyHostToDevice);
-	cudaMalloc((void **)&d_W,      N*Kpad*sizeof(real));
-	cudaMalloc((void **)&d_Htras,  M*Kpad*sizeof(real));
-	cudaMalloc((void **)&d_WH,     N*M*sizeof(real));
 
-	cudaMalloc((void **)&d_Waux,   N*Kpad*sizeof(real));
-	cudaMalloc((void **)&d_Haux,   M*Kpad*sizeof(real));
 
-	cudaMalloc((void **)&d_acumm_W,Kpad*sizeof(real));
-	cudaMalloc((void **)&d_acumm_H,Kpad*sizeof(real));
 
 	/**********************************/
 	/******     MAIN PROGRAM     ******/
@@ -629,7 +602,7 @@ int main(int argc, char *argv[]) {
 
 		/* Get variance of the method error = |V-W*H| */
 		error = get_Error(V, W, Htras, N, M, K);
-		if (error<error_old) {
+		if (error < error_old) {
 			printf("Better W and H, Error %e Test=%i, Iter=%i\n", error, test, iter*NITER_TEST_CONV);
 			matrix_copy2D(W, W_best, N, K);
 			matrix_copy2D(Htras, Htras_best, M, K);
