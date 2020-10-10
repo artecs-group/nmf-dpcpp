@@ -1,56 +1,9 @@
 #include <stdio.h>
-#include <stdlib.h>
-#include <math.h>
 #include <sys/times.h>
 #include <malloc.h>
-#include <string.h>
 #include <time.h>
 #include <sys/time.h>
-#include <CL/sycl.hpp>
-
-
-using namespace cl::sycl;
-
-//#define RANDOM
-//const bool pinned_memory = true;
-#define DEBUG
-const bool verbose = false;
-const char PAD = 32;
-
-#if REAL <=4
-	#define real float
-	#define cblas_rgemm cblas_sgemm
-	#define cblas_rdot cblas_sdot
-	#define cblas_rcopy cblas_scopy
-	#define rmax(a,b) ( ( (a) > (b) )? (a) : (b) )
-	#define rsqrt sqrtf
-
-/* Number of iterations before testing convergence (can be adjusted) */
-const int NITER_TEST_CONV = 10;
-
-/* Spacing of floating point numbers. */
-const real eps = 2.2204e-16;
-
-constexpr access::mode sycl_read       = access::mode::read;
-constexpr access::mode sycl_write      = access::mode::write;
-constexpr access::mode sycl_read_write = access::mode::read_write;
-constexpr access::mode sycl_discard_read_write = access::mode::discard_read_write;
-constexpr access::mode sycl_discard_write = access::mode::discard_write;
-
-// CUDA device selector
-class CUDASelector : public device_selector {
-    public:
-        int operator()(const device &Device) const override {
-            const std::string DriverVersion = Device.get_info<info::device::driver_version>();
-
-            if (Device.is_gpu() && (DriverVersion.find("CUDA") != std::string::npos))
-                //std::cout << " CUDA device found " << std::endl;
-                return 1;
-
-            return -1;
-        }
-};
-
+#include "./kernels/common.h"
 
 double gettime() {
 	double final_time;
@@ -412,30 +365,6 @@ void writeSolution(real **W, real**Ht, unsigned char *consensus, int N, int M,
 	delete_memory2D(H);
 }
 
-
-double tW0=0.0, tW1=0.0, tW2=0.0, tW3=0.0, tW4=0.0;
-double tH0=0.0, tH1=0.0, tH2=0.0, tH3=0.0, tH4=0.0;
-
-
-// TODO: updated to run in the device (add it in the kernel file)
-void adjust_WH(buffer<real, 2> *b_W, buffer<real, 2> *b_Ht, int N, int M, int K) {
-	auto W = b_W.get_access<sycl_read_write>();
-    auto b_Ht = b_Ht.get_access<sycl_read_write>();
-    
-    int i, j;
-	
-	for (i = 0; i < N; i++)
-		for (j = 0; j < K; j++)
-			if (W[i][j] < eps)
-				W[i][j] = eps;
-				
-	for (i = 0; i < M; i++)
-		for (j = 0; j < K; j++)
-			if (Ht[i][j] < eps)
-				Ht[i][j] = eps;				 
-}
-
-
 // TODO: updated to run in the device
 void nmf(int niter, real *d_V, real *d_WH, real *d_W, real *d_Htras, 
     real *d_Waux, real *d_Haux,
@@ -469,9 +398,9 @@ void nmf(int niter, real *d_V, real *d_WH, real *d_W, real *d_Htras,
                 mult_M_div_vect(d_Htras, d_Haux, d_accW, M, K, Kpad);/* H = H .* (Haux) ./ accum_W */
         t1 = gettime(); tH4+=t1-t0;
 
-                /*******************************************/
-                /*** W = W .* ((V./(W*H))*H') ./ accum_H ***/
-                /*******************************************/
+		/*******************************************/
+		/*** W = W .* ((V./(W*H))*H') ./ accum_H ***/
+		/*******************************************/
         t0 = gettime();
                 W_mult_H(d_WH, d_W, d_Htras, N, M, K, Kpad);	/* WH = W*H */
         t1 = gettime(); tW0+=t1-t0; t0 = gettime();
@@ -574,7 +503,7 @@ int main(int argc, char *argv[]) {
 				N, M, K, Kpad);
 
 			/* Adjust small values to avoid undeflow: h=max(h,eps);w=max(w,eps); */
-			adjust_WH(&b_W, &b_Htras, N, M, K, Kpad);
+			adjust_WH(&q, &b_W, &b_Htras, N, M, K, Kpad);
 
 			/* Test of convergence: construct connectivity matrix */
 			get_classification(&b_Htras, classification, M, K);
