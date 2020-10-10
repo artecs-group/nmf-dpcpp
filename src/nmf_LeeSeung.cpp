@@ -3,7 +3,7 @@
 #include <malloc.h>
 #include <time.h>
 #include <sys/time.h>
-#include "./kernels/common.h"
+#include "./kernels/bare/bare.h" //default kernels
 
 double gettime() {
 	double final_time;
@@ -325,7 +325,7 @@ real get_Error(buffer<real, 2> *b_V, buffer<real, 2> *b_W,
 	real error, tot_error;
 	real Vnew;
 	
-	error=0.0;
+	error = 0.0;
 	for(int i = 0; i < N; i++) {
 		for(int j = 0; j < M; j++){
 			Vnew = 0.0;
@@ -365,12 +365,12 @@ void writeSolution(real **W, real**Ht, unsigned char *consensus, int N, int M,
 	delete_memory2D(H);
 }
 
-// TODO: updated to run in the device
+
 void nmf(int niter, queue *q, buffer<real, 2> *b_V, buffer<real, 2> *b_WH, 
 	buffer<real, 2> *b_W, buffer<real, 2> *b_Htras, 
     buffer<real, 2> *b_Haux, buffer<real, 2> *b_Haux,
 	buffer<real, 1> *b_accW, buffer<real, 1> *b_accH,
-	int N, int M, int K, int Kpad)
+	int N, int M, int K)
 {
 	/*************************************/
 	/*                                   */
@@ -403,6 +403,8 @@ void nmf(int niter, queue *q, buffer<real, 2> *b_V, buffer<real, 2> *b_WH,
 int main(int argc, char *argv[]) {
 	int nTests, niters;
 	int i,j;
+
+	queue q;
 
 	real **W_best, **Htras_best;
 	unsigned char *classification, *last_classification;
@@ -439,6 +441,21 @@ int main(int argc, char *argv[]) {
 	}
 
     printf("file=%s\nN=%i M=%i K=%i nTests=%i stop_threshold=%i\n", file_name, N, M, K, nTests, stop_threshold);
+
+	#ifdef NVIDIA_GPU
+    	CUDASelector selector;
+	#ifdef INTEL_IGPU
+		NEOGPUDeviceSelector selector;
+	#else
+		cpu_selector selector;
+	#endif
+
+	try {
+		queue q(selector);
+	} catch (invalid_parameter_error &E) {
+		std::cout << E.what() << std::endl;
+		return(0);
+	}
 
     buffer<real, 2> b_V{ range<2>{N, M} };
     buffer<real, 2> b_W{ range<2>{N, Kpad} };
@@ -482,9 +499,9 @@ int main(int argc, char *argv[]) {
 			iter++;
 
 			/* Main Proccess of NMF Brunet */
-			nmf(NITER_TEST_CONV, 
-				b_V, b_WH, b_W, b_Htras, b_Waux, b_Haux, b_acumm_W, b_acumm_H,
-				N, M, K, Kpad);
+			nmf(NITER_TEST_CONV, &q, &b_V, &b_WH, &b_W, 
+				&b_Htras, &b_Waux, &b_Haux, &b_acumm_W, &b_acumm_H,
+				N, M, K);
 
 			/* Adjust small values to avoid undeflow: h=max(h,eps);w=max(w,eps); */
 			adjust_WH(&q, &b_W, &b_Htras, N, M, K);
@@ -525,8 +542,6 @@ int main(int argc, char *argv[]) {
 	/**********************************/
 
 	printf("\n\n\n EXEC TIME %f (s). (CPU2GPU %f s)      N=%i M=%i K=%i Tests=%i (%i)\n", (time1-time0)/1000000, timeGPU2CPU/1000000, N, M, K, nTests, sizeof(real));
-	printf("tH0=%f tH1=%f tH2=%f tH3=%f\n", tH0/1000000, tH1/1000000, tH2/1000000, tH3/1000000);
-	printf("tW0=%f tW1=%f tW2=%f tW3=%f\n", tW0/1000000, tW1/1000000, tW2/1000000, tW3/1000000);
 
 	/* Write the solution of the problem */
 	writeSolution(W_best, Htras_best, consensus, N, M, K, nTests);
