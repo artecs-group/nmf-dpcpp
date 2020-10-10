@@ -366,41 +366,36 @@ void writeSolution(real **W, real**Ht, unsigned char *consensus, int N, int M,
 }
 
 // TODO: updated to run in the device
-void nmf(int niter, real *d_V, real *d_WH, real *d_W, real *d_Htras, 
-    real *d_Waux, real *d_Haux,
-	real *d_accW, real *d_accH,
+void nmf(int niter, queue *q, buffer<real, 2> *b_V, buffer<real, 2> *b_WH, 
+	buffer<real, 2> *b_W, buffer<real, 2> *b_Htras, 
+    buffer<real, 2> *b_Haux, buffer<real, 2> *b_Haux,
+	buffer<real, 1> *b_accW, buffer<real, 1> *b_accH,
 	int N, int M, int K, int Kpad)
 {
-	int iter;
-	int i, j, k;
-	real diff, tot_diff;
-	real Vn;
-	double t0, t1;
-
 	/*************************************/
 	/*                                   */
 	/*      Main Iterative Process       */
 	/*                                   */
 	/*************************************/
-	for (iter=0; iter<niter; iter++) {
+	for (int iter = 0; iter < niter; iter++) {
 		/*******************************************/
 		/*** H = H .* (W'*(V./(W*H))) ./ accum_W ***/
 		/*******************************************/
 
-        W_mult_H(d_WH, d_W, d_Htras, N, M, K, Kpad);	/* WH = W*H */ // TODO: specific kernel
-        V_div_WH(d_V, d_WH, N, M);			/* WH = (V./(W*H) */
-        accum(d_accW, d_W, N, K, Kpad); 		/* Shrink into one column */ // TODO: specific kernel
-        Wt_mult_WH(d_Haux, d_W, d_WH, N, M, K, Kpad);	/* Haux = (W'* {V./(WH)} */ // TODO: specific kernel
-        mult_M_div_vect(d_Htras, d_Haux, d_accW, M, K, Kpad);/* H = H .* (Haux) ./ accum_W */
+        W_mult_H(&q, &b_WH, &b_W, &b_Htras, N, M, K);	/* WH = W*H */
+        V_div_WH(&q, &b_V, &b_WH, N, M);			/* WH = (V./(W*H) */
+        accum(&q, &b_accW, &b_W, N, K); 		/* Shrink into one column */
+        Wt_mult_WH(&q, &b_Haux, &b_W, &b_WH, N, M, K);	/* Haux = (W'* {V./(WH)} */
+        mult_M_div_vect(&q, &b_Htras, &b_Haux, &b_accW, M, K);/* H = H .* (Haux) ./ accum_W */
 
 		/*******************************************/
 		/*** W = W .* ((V./(W*H))*H') ./ accum_H ***/
 		/*******************************************/
-        W_mult_H(d_WH, d_W, d_Htras, N, M, K, Kpad);	/* WH = W*H */
-        V_div_WH(d_V, d_WH, N, M );			/* WH = (V./(W*H) */
-        WH_mult_Ht(d_Waux, d_WH, d_Htras, N, M, K, Kpad);/* Waux =  {V./(W*H)} *H' */ // TODO: specific kernel
-        accum(d_accH, d_Htras, M, K, Kpad);		/* Shrink into one column */
-        mult_M_div_vect(d_W, d_Waux, d_accH, N, K, Kpad);/* W = W .* Waux ./ accum_H */
+        W_mult_H(&q, &b_WH, &b_W, &b_Htras, N, M, K);	/* WH = W*H */
+        V_div_WH(&q, &b_V, &b_WH, N, M );			/* WH = (V./(W*H) */
+        WH_mult_Ht(&q, &b_Haux, &b_WH, &b_Htras, N, M, K);/* Waux =  {V./(W*H)} *H' */
+        accum(&q, &b_accH, &b_Htras, M, K);		/* Shrink into one column */
+        mult_M_div_vect(&q, &b_W, &b_Haux, &b_accH, N, K);/* W = W .* Waux ./ accum_H */
     }
 }
 
@@ -488,11 +483,11 @@ int main(int argc, char *argv[]) {
 
 			/* Main Proccess of NMF Brunet */
 			nmf(NITER_TEST_CONV, 
-				d_V, d_WH, d_W, d_Htras, d_Waux, d_Haux, d_acumm_W, d_acumm_H,
+				b_V, b_WH, b_W, b_Htras, b_Waux, b_Haux, b_acumm_W, b_acumm_H,
 				N, M, K, Kpad);
 
 			/* Adjust small values to avoid undeflow: h=max(h,eps);w=max(w,eps); */
-			adjust_WH(&q, &b_W, &b_Htras, N, M, K, Kpad);
+			adjust_WH(&q, &b_W, &b_Htras, N, M, K);
 
 			/* Test of convergence: construct connectivity matrix */
 			get_classification(&b_Htras, classification, M, K);
