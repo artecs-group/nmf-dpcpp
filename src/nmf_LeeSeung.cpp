@@ -16,7 +16,7 @@ double gettime() {
 }
 
 
-void init_memory1D(int nx, buffer<real, 1> *buff) {
+void init_memory1D(int nx, buffer<real, 1> &buff) {
     auto memory = buff.get_access<sycl_write>();
 
 	for(int i = 0; i < nx; i++)
@@ -33,16 +33,13 @@ unsigned char *get_memory1D_uchar(int nx) {
 		return( NULL );
 	}
 
-	// for( i=0; i<nx; i++ )
-	// 	buffer[i] = (int)(0);
-
     std::fill(std::begin(buffer), std::end(buffer), 0);
 
 	return( buffer );
 }
 
 
-void delete_memory1D_uchar( unsigned char *buffer ) { 
+void delete_memory1D_uchar(unsigned char *buffer) { 
 	free(buffer);
 }
 
@@ -73,7 +70,7 @@ real **get_memory2D(int nx, int ny) {
 }
 
 
-void init_memory2D(int nx, int ny, buffer<real, 2> *buff) { 
+void init_memory2D(int nx, int ny, buffer<real, 2> &buff) { 
 	int i,j;
     auto memory = buff.get_access<sycl_read_write>();
 
@@ -97,7 +94,7 @@ void matrix_copy1D_uchar(unsigned char *in, unsigned char *out, int nx) {
 }
 
 
-void matrix_copy2D(buffer<real, 2> *b_in, real **out, int nx, int ny) {
+void matrix_copy2D(buffer<real, 2> &b_in, real **out, int nx, int ny) {
 	auto in = b_in.get_access<sycl_read>();
 	
 	for (int i = 0; i < nx; i++)
@@ -106,7 +103,8 @@ void matrix_copy2D(buffer<real, 2> *b_in, real **out, int nx, int ny) {
 }
 
 
-void initWH(buffer<real, 2> *b_W, buffer<real, 2> *b_Htras, int N, int M, 
+// TODO: check
+void initWH(buffer<real, 2> &b_W, buffer<real, 2> &b_Htras, int N, int M, 
     int K, int Kpad)
 {
 	int i,j;
@@ -201,7 +199,7 @@ void printMATRIX(real **m, int I, int J) {
 }
 
 
-void initV(int N, int M, char* file_name, buffer<real, 2> *b_V) {
+void initV(int N, int M, char* file_name, buffer<real, 2> &b_V) {
 	char *data;
 	FILE *fIn;
 	
@@ -280,7 +278,7 @@ void get_consensus(unsigned char *classification, unsigned char *consensus,
 
 
 /* Obtain the classification vector from the Ht matrix */
-void get_classification(buffer<real, 2> *b_Htras, unsigned char *classification,
+void get_classification(buffer<real, 2> &b_Htras, unsigned char *classification,
     int M, int K)
 {
     auto Htras = b_Htras.get_access<sycl_read>();
@@ -297,8 +295,8 @@ void get_classification(buffer<real, 2> *b_Htras, unsigned char *classification,
 }
 
 
-real get_Error(buffer<real, 2> *b_V, buffer<real, 2> *b_W, 
-    buffer<real, 2> *b_Htras, int N, int M, int K) 
+real get_Error(buffer<real, 2> &b_V, buffer<real, 2> &b_W, 
+    buffer<real, 2> &b_Htras, int N, int M, int K) 
 {
 	/*
 	* norm( V-WH, 'Frobenius' ) == sqrt( sum( diag( (V-WH)'* (V-WH) ) )
@@ -366,10 +364,10 @@ void writeSolution(real **W, real**Ht, unsigned char *consensus, int N, int M,
 }
 
 
-void nmf(int niter, queue *q, buffer<real, 2> *b_V, buffer<real, 2> *b_WH, 
-	buffer<real, 2> *b_W, buffer<real, 2> *b_Htras, 
-    buffer<real, 2> *b_Haux, buffer<real, 2> *b_Haux,
-	buffer<real, 1> *b_accW, buffer<real, 1> *b_accH,
+void nmf(int niter, queue &q, buffer<real, 2> &b_V, buffer<real, 2> &b_WH, 
+	buffer<real, 2> &b_W, buffer<real, 2> &b_Htras, 
+    buffer<real, 2> &b_Haux, buffer<real, 2> &b_Haux,
+	buffer<real, 1> &b_accW, buffer<real, 1> &b_accH,
 	int N, int M, int K)
 {
 	/*************************************/
@@ -382,20 +380,20 @@ void nmf(int niter, queue *q, buffer<real, 2> *b_V, buffer<real, 2> *b_WH,
 		/*** H = H .* (W'*(V./(W*H))) ./ accum_W ***/
 		/*******************************************/
 
-        W_mult_H(&q, &b_WH, &b_W, &b_Htras, N, M, K);	/* WH = W*H */
-        V_div_WH(&q, &b_V, &b_WH, N, M);			/* WH = (V./(W*H) */
-        accum(&q, &b_accW, &b_W, N, K); 		/* Shrink into one column */
-        Wt_mult_WH(&q, &b_Haux, &b_W, &b_WH, N, M, K);	/* Haux = (W'* {V./(WH)} */
-        mult_M_div_vect(&q, &b_Htras, &b_Haux, &b_accW, M, K);/* H = H .* (Haux) ./ accum_W */
+        W_mult_H(q, b_WH, b_W, b_Htras, N, M, K);	/* WH = W*H */
+        V_div_WH(q, b_V, b_WH, N, M);			/* WH = (V./(W*H) */
+        accum(q, b_accW, b_W, N, K); 		/* Shrink into one column */
+        Wt_mult_WH(q, b_Haux, b_W, b_WH, N, M, K);	/* Haux = (W'* {V./(WH)} */
+        mult_M_div_vect(q, b_Htras, b_Haux, b_accW, M, K);/* H = H .* (Haux) ./ accum_W */
 
 		/*******************************************/
 		/*** W = W .* ((V./(W*H))*H') ./ accum_H ***/
 		/*******************************************/
-        W_mult_H(&q, &b_WH, &b_W, &b_Htras, N, M, K);	/* WH = W*H */
-        V_div_WH(&q, &b_V, &b_WH, N, M );			/* WH = (V./(W*H) */
-        WH_mult_Ht(&q, &b_Haux, &b_WH, &b_Htras, N, M, K);/* Waux =  {V./(W*H)} *H' */
-        accum(&q, &b_accH, &b_Htras, M, K);		/* Shrink into one column */
-        mult_M_div_vect(&q, &b_W, &b_Haux, &b_accH, N, K);/* W = W .* Waux ./ accum_H */
+        W_mult_H(q, b_WH, b_W, b_Htras, N, M, K);	/* WH = W*H */
+        V_div_WH(q, b_V, b_WH, N, M );			/* WH = (V./(W*H) */
+        WH_mult_Ht(q, b_Haux, b_WH, b_Htras, N, M, K);/* Waux =  {V./(W*H)} *H' */
+        accum(q, b_accH, b_Htras, M, K);		/* Shrink into one column */
+        mult_M_div_vect(q, b_W, b_Haux, b_accH, N, K);/* W = W .* Waux ./ accum_H */
     }
 }
 
@@ -466,14 +464,14 @@ int main(int argc, char *argv[]) {
     buffer<real, 1> b_acumm_W{ range<1>{Kpad} };
     buffer<real, 1> b_acumm_H{ range<1>{Kpad} };
 
-    initV(N, M, file_name, &b_V);
-    init_memory2D(N, Kpad, &b_W);
-    init_memory2D(M, Kpad, &b_Htras);
-    init_memory2D(N, M, &b_WH);
-    init_memory2D(M, Kpad, &b_Haux);
-    init_memory2D(N, Kpad, &b_Waux);
-    init_memory1D(Kpad, &b_acumm_W);
-    init_memory1D(Kpad, &b_acumm_H);
+    initV(N, M, file_name, b_V);
+    init_memory2D(N, Kpad, b_W);
+    init_memory2D(M, Kpad, b_Htras);
+    init_memory2D(N, M, b_WH);
+    init_memory2D(M, Kpad, b_Haux);
+    init_memory2D(N, Kpad, b_Waux);
+    init_memory1D(Kpad, b_acumm_W);
+    init_memory1D(Kpad, b_acumm_H);
 
     W_best              = get_memory2D(N, Kpad);
     Htras_best          = get_memory2D(M, Kpad);
@@ -488,7 +486,7 @@ int main(int argc, char *argv[]) {
 
 	for (test=0; test<nTests; test++) {
 		/* Init W and H */
-		initWH(&b_W, &b_Htras, N, M, K, Kpad);
+		initWH(b_W, b_Htras, N, M, K, Kpad);
 
 		niters = 2000/NITER_TEST_CONV;
 
@@ -499,15 +497,15 @@ int main(int argc, char *argv[]) {
 			iter++;
 
 			/* Main Proccess of NMF Brunet */
-			nmf(NITER_TEST_CONV, &q, &b_V, &b_WH, &b_W, 
-				&b_Htras, &b_Waux, &b_Haux, &b_acumm_W, &b_acumm_H,
+			nmf(NITER_TEST_CONV, q, b_V, b_WH, b_W, 
+				b_Htras, b_Waux, b_Haux, b_acumm_W, b_acumm_H,
 				N, M, K);
 
 			/* Adjust small values to avoid undeflow: h=max(h,eps);w=max(w,eps); */
-			adjust_WH(&q, &b_W, &b_Htras, N, M, K);
+			adjust_WH(q, b_W, b_Htras, N, M, K);
 
 			/* Test of convergence: construct connectivity matrix */
-			get_classification(&b_Htras, classification, M, K);
+			get_classification(b_Htras, classification, M, K);
 
 			diff = get_difference(classification, last_classification, M);
 			matrix_copy1D_uchar(classification, last_classification, M);
@@ -529,13 +527,13 @@ int main(int argc, char *argv[]) {
 		get_consensus(classification, consensus, M);
 
 		/* Get variance of the method error = |V-W*H| */
-		error = get_Error(&b_V, &b_W, &b_Htras, N, M, K);
+		error = get_Error(b_V, b_W, b_Htras, N, M, K);
 		if (error < error_old) {
 			printf("Better W and H, Error %e Test=%i, Iter=%i\n", error, test, iter*NITER_TEST_CONV);
-			matrix_copy2D(&b_W, W_best, N, K);
-			matrix_copy2D(&b_Htras, Htras_best, M, K);
+			matrix_copy2D(b_W, W_best, N, K);
+			matrix_copy2D(b_Htras, Htras_best, M, K);
 			error_old = error;
-		}		
+		}
 	}
 	time1 = gettime();
 	/**********************************/

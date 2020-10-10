@@ -1,7 +1,7 @@
 #include "./bare_kernel.h"
 
 
-void W_mult_H(queue *q, buffer<real, 2> *b_WH, buffer<real, 2> *b_W, buffer<real, 2> *b_Htras, int N, int M, int K) {
+void W_mult_H(queue &q, buffer<real, 2> &b_WH, buffer<real, 2> &b_W, buffer<real, 2> &b_Htras, int N, int M, int K) {
         q.submit([&](handler& cgh) {
         auto WH = b_WH.get_access<sycl_read_write>();
         auto W = b_W.get_access<sycl_read>();
@@ -18,31 +18,31 @@ void W_mult_H(queue *q, buffer<real, 2> *b_WH, buffer<real, 2> *b_W, buffer<real
 }
 
 
-void accum(queue *q, buffer<real, 1> *b_acc, buffer<real, 2> *b_X, int N, int M) {
+void accum(queue &q, buffer<real, 1> &b_acc, buffer<real, 2> &b_X, int N, int M) {
     q.submit([&](handler& cgh) {
         auto acc = b_acc.get_access<sycl_write>();
-        auto W = b_W.get_access<sycl_read>();
+        auto X = b_X.get_access<sycl_read>();
 
         cgh.parallel_for<class init_0>(range<1>(M), [=](id <1> i){
-            acc[i] = W[0][i];
+            acc[i] = X[0][i];
         });
     });
 
     q.submit([&](handler& cgh) {
         auto acc = b_acc.get_access<sycl_write>();
-        auto W = b_W.get_access<sycl_read>();
+        auto X = b_X.get_access<sycl_read>();
 
         cgh.parallel_for<class add_matrix>(range<2>(N-1, M), [=](id <2> ij){
             int i = ij[0];
             int j = ij[1];
 
-            acc[j] += W[i+1][j];
+            acc[j] += X[i+1][j];
         });
     });
 }
 
 
-void Wt_mult_WH(queue *q, buffer<real, 2> *b_Haux, buffer<real, 2> *b_W, buffer<real, 2> *b_WH, int N, int M, int K) {
+void Wt_mult_WH(queue &q, buffer<real, 2> &b_Haux, buffer<real, 2> &b_W, buffer<real, 2> &b_WH, int N, int M, int K) {
     q.submit([&](handler& cgh) {
         auto Haux = b_Haux.get_access<sycl_write>();
 
@@ -67,7 +67,7 @@ void Wt_mult_WH(queue *q, buffer<real, 2> *b_Haux, buffer<real, 2> *b_W, buffer<
 }
 
 
-void WH_mult_Ht(queue *q, buffer<real, 2> *b_Waux, buffer<real, 2> *b_WH, buffer<real, 2> *b_Htras, int N, int M, int K) {
+void WH_mult_Ht(queue &q, buffer<real, 2> &b_Waux, buffer<real, 2> &b_WH, buffer<real, 2> &b_Htras, int N, int M, int K) {
     q.submit([&](handler& cgh) {
         auto Waux = b_Waux.get_access<sycl_read_write>();
         auto WH = b_WH.get_access<sycl_read>();
