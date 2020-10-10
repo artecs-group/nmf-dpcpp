@@ -442,11 +442,11 @@ int main(int argc, char *argv[]) {
 
     printf("file=%s\nN=%i M=%i K=%i nTests=%i stop_threshold=%i\n", file_name, N, M, K, nTests, stop_threshold);
 
-	#ifdef NVIDIA_GPU
+	#ifdef NVIDIA_DEVICE
     	CUDASelector selector;
-	#ifdef INTEL_IGPU
+	#ifdef INTEL_IGPU_DEVICE
 		NEOGPUDeviceSelector selector;
-	#else
+	#else // CPU_DEVICE
 		cpu_selector selector;
 	#endif
 
