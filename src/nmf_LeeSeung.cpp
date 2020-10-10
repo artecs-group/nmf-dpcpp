@@ -386,32 +386,21 @@ void nmf(int niter, real *d_V, real *d_WH, real *d_W, real *d_Htras,
 		/*******************************************/
 		/*** H = H .* (W'*(V./(W*H))) ./ accum_W ***/
 		/*******************************************/
-        t0 = gettime();
-                W_mult_H(d_WH, d_W, d_Htras, N, M, K, Kpad);	/* WH = W*H */
-        t1 = gettime(); tH0+=t1-t0; t0 = gettime();
-                V_div_WH(d_V, d_WH, N, M );			/* WH = (V./(W*H) */
-        t1 = gettime(); tH1+=t1-t0; t0 = gettime();
-                accum(d_accW, d_W, N, K, Kpad); 		/* Reducir a una columna */
-        t1 = gettime(); tH2+=t1-t0; t0 = gettime();
-                Wt_mult_WH(d_Haux, d_W, d_WH, N, M, K, Kpad);	/* Haux = (W'* {V./(WH)} */
-        t1 = gettime(); tH3+=t1-t0; t0 = gettime();
-                mult_M_div_vect(d_Htras, d_Haux, d_accW, M, K, Kpad);/* H = H .* (Haux) ./ accum_W */
-        t1 = gettime(); tH4+=t1-t0;
+
+        W_mult_H(d_WH, d_W, d_Htras, N, M, K, Kpad);	/* WH = W*H */ // TODO: specific kernel
+        V_div_WH(d_V, d_WH, N, M);			/* WH = (V./(W*H) */
+        accum(d_accW, d_W, N, K, Kpad); 		/* Shrink into one column */ // TODO: specific kernel
+        Wt_mult_WH(d_Haux, d_W, d_WH, N, M, K, Kpad);	/* Haux = (W'* {V./(WH)} */ // TODO: specific kernel
+        mult_M_div_vect(d_Htras, d_Haux, d_accW, M, K, Kpad);/* H = H .* (Haux) ./ accum_W */
 
 		/*******************************************/
 		/*** W = W .* ((V./(W*H))*H') ./ accum_H ***/
 		/*******************************************/
-        t0 = gettime();
-                W_mult_H(d_WH, d_W, d_Htras, N, M, K, Kpad);	/* WH = W*H */
-        t1 = gettime(); tW0+=t1-t0; t0 = gettime();
-                V_div_WH(d_V, d_WH, N, M );			/* WH = (V./(W*H) */
-        t1 = gettime(); tW1+=t1-t0; t0 = gettime();
-                WH_mult_Ht(d_Waux, d_WH, d_Htras, N, M, K, Kpad);/* Waux =  {V./(W*H)} *H' */
-        t1 = gettime(); tW2+=t1-t0; t0 = gettime();
-                accum(d_accH, d_Htras, M, K, Kpad);		/* Reducir a una columna */
-        t1 = gettime(); tW3+=t1-t0; t0 = gettime();
-                mult_M_div_vect(d_W, d_Waux, d_accH, N, K, Kpad);/* W = W .* Waux ./ accum_H */
-        t1 = gettime(); tW4+=t1-t0;
+        W_mult_H(d_WH, d_W, d_Htras, N, M, K, Kpad);	/* WH = W*H */
+        V_div_WH(d_V, d_WH, N, M );			/* WH = (V./(W*H) */
+        WH_mult_Ht(d_Waux, d_WH, d_Htras, N, M, K, Kpad);/* Waux =  {V./(W*H)} *H' */ // TODO: specific kernel
+        accum(d_accH, d_Htras, M, K, Kpad);		/* Shrink into one column */
+        mult_M_div_vect(d_W, d_Waux, d_accH, N, K, Kpad);/* W = W .* Waux ./ accum_H */
     }
 }
 
