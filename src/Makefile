@@ -1,7 +1,7 @@
 OPTIMIZE    = yes
 DEBUG       = no
 DEVICE      = cpu # {cpu, nvidia, igpu}
-KERNEL     = bare # {bare, blas, cublas}
+KERNEL      = bare # {bare, blas, cublas}
 
 
 # Program flags
@@ -43,17 +43,19 @@ ifeq ($(OPTIMIZE),yes)
 endif
 
 
-nmf: bare_kernel.o nmf.o common.o
-	$(CC) $(CFLAGS) -o nmf bare_kernel.o nmf.o common.o
+nmf: nmf_LeeSeung.o ./kernels/bare_kernel/bare_kernel.o ./kernels/common.o
+	$(CC) $(CFLAGS) -o nmf nmf_LeeSeung.o ./kernels/bare_kernel/bare_kernel.o ./kernels/common.o
 
-nmf.o: nmf_LeeSeung.cpp bare_kernel.o
-  $(CC) $(CFLAGS) -c nmf_LeeSeung.cpp
+nmf_LeeSeung.o: ./kernels/bare_kernel/bare_kernel.o ./kernels/common.o nmf_LeeSeung.cpp
+	$(CC) $(CFLAGS) -c nmf_LeeSeung.cpp
 
-bare_kernel.o: bare_kernel.cpp bare_kernel.h common.o
-	$(CC) $(CFLAGS) -c bare_kernel.cpp
+./kernels/bare_kernel/bare_kernel.o: ./kernels/bare_kernel/bare_kernel.cpp \
+  ./kernels/bare_kernel/bare_kernel.h \
+  ./kernels/common.o
+	$(CC) $(CFLAGS) -c ./kernels/bare_kernel/bare_kernel.cpp
 
-common.o: common.cpp common.h
-	$(CC) $(CFLAGS) -c common.cpp
+./kernels/common.o: ./kernels/common.cpp ./kernels/common.h
+	$(CC) $(CFLAGS) -c ./kernels/common.cpp
 
 
 
