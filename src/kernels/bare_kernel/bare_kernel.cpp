@@ -73,7 +73,7 @@ void WH_mult_Ht(queue &q, buffer<real, 2> &b_Waux, buffer<real, 2> &b_WH, buffer
         auto WH = b_WH.get_access<sycl_read>();
         auto Htras = b_Htras.get_access<sycl_read>();
 
-        cgh.parallel_for<class matrix_mul>(range<2>(N, K), [=](id <2> ij){
+        cgh.parallel_for<class matrix_mul_sum>(range<2>(N, K), [=](id <2> ij){
             int i = ij[0];
             int j = ij[1];
 

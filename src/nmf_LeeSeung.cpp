@@ -25,7 +25,6 @@ void init_memory1D(int nx, buffer<real, 1> &buff) {
 
 
 unsigned char *get_memory1D_uchar(int nx) { 
-	int i;
 	unsigned char *buffer;	
 
 	if( (buffer=(unsigned char *)malloc(nx*sizeof(int)))== NULL ) {
@@ -33,7 +32,8 @@ unsigned char *get_memory1D_uchar(int nx) {
 		return( NULL );
 	}
 
-    std::fill(std::begin(buffer), std::end(buffer), 0);
+    for(int i = 0; i < nx; i++)
+		buffer[i] = (int)(0);
 
 	return( buffer );
 }
@@ -75,7 +75,7 @@ void init_memory2D(int nx, int ny, buffer<real, 2> &buff) {
     auto memory = buff.get_access<sycl_read_write>();
 
 	for(i = 1; i < nx; i++)
-		memory[i] = memory[i-1] + ny;
+		memory[i][0] = memory[i-1][0] + ny;
 
 	for(i = 0; i < nx; i++)
 		for(j = 0; j < ny; j++)
@@ -108,10 +108,9 @@ void initWH(buffer<real, 2> &b_W, buffer<real, 2> &b_Htras, int N, int M,
     int K, int Kpad)
 {
 	int i,j;
-	int ii, jj;
 	
-    auto W = b_W.get_access<sycl_read>();
-    auto Htras = b_Htras.get_access<sycl_read>();
+    auto W = b_W.get_access<sycl_write>();
+    auto Htras = b_Htras.get_access<sycl_write>();
 
 	int seedi;
 	FILE *fd;
@@ -200,11 +199,9 @@ void printMATRIX(real **m, int I, int J) {
 
 
 void initV(int N, int M, char* file_name, buffer<real, 2> &b_V) {
-	char *data;
 	FILE *fIn;
 	
 	/* Local variables */
-	int i, j;
 	const int size_V = N*M;
     auto V = b_V.get_access<sycl_write>();
 
@@ -320,7 +317,7 @@ real get_Error(buffer<real, 2> &b_V, buffer<real, 2> &b_W,
     auto Htras = b_Htras.get_access<sycl_read>();
     
 
-	real error, tot_error;
+	real error;
 	real Vnew;
 	
 	error = 0.0;
@@ -366,7 +363,7 @@ void writeSolution(real **W, real**Ht, unsigned char *consensus, int N, int M,
 
 void nmf(int niter, queue &q, buffer<real, 2> &b_V, buffer<real, 2> &b_WH, 
 	buffer<real, 2> &b_W, buffer<real, 2> &b_Htras, 
-    buffer<real, 2> &b_Haux, buffer<real, 2> &b_Haux,
+    buffer<real, 2> &b_Waux, buffer<real, 2> &b_Haux,
 	buffer<real, 1> &b_accW, buffer<real, 1> &b_accH,
 	int N, int M, int K)
 {
@@ -391,15 +388,15 @@ void nmf(int niter, queue &q, buffer<real, 2> &b_V, buffer<real, 2> &b_WH,
 		/*******************************************/
         W_mult_H(q, b_WH, b_W, b_Htras, N, M, K);	/* WH = W*H */
         V_div_WH(q, b_V, b_WH, N, M );			/* WH = (V./(W*H) */
-        WH_mult_Ht(q, b_Haux, b_WH, b_Htras, N, M, K);/* Waux =  {V./(W*H)} *H' */
+        WH_mult_Ht(q, b_Waux, b_WH, b_Htras, N, M, K);/* Waux =  {V./(W*H)} *H' */
         accum(q, b_accH, b_Htras, M, K);		/* Shrink into one column */
-        mult_M_div_vect(q, b_W, b_Haux, b_accH, N, K);/* W = W .* Waux ./ accum_H */
+        mult_M_div_vect(q, b_W, b_Waux, b_accH, N, K);/* W = W .* Waux ./ accum_H */
     }
 }
 
 
 int main(int argc, char *argv[]) {
-	int nTests, niters;
+	int niters;
 	int i,j;
 
 	queue q;
@@ -408,11 +405,7 @@ int main(int argc, char *argv[]) {
 	unsigned char *classification, *last_classification;
 	unsigned char *consensus;
 
-	int N;
-	int M;
-	int K;
-	int Kpad;
-	int stop_threshold, stop;
+	int stop;
 	char file_name[255];
 	int test, iter;
 	int diff, inc;
@@ -420,33 +413,33 @@ int main(int argc, char *argv[]) {
 	double time0, time1;
 	
 	real error;
-	real error_old = 9.99e+50;
+	constexpr real error_old = 9.99e+50;
 
     setbuf( stdout, NULL );
 	
-	if (argc == 7) {
-		strcpy(file_name, argv[1]);
-		N              = atoi(argv[2]);
-		M              = atoi(argv[3]);
-		K              = atoi(argv[4]);
-		Kpad           = K + (PAD - K % PAD);
-		nTests         = atoi(argv[5]);
-		stop_threshold = atoi(argv[6]);
-	} 
-    else {
-	 	printf("./exec dataInput.bin N M K nTests stop_threshold (argc=%i %i)\n", argc, atoi(argv[2]));
+	if (argc != 7) {
+		printf("./exec dataInput.bin N M K nTests stop_threshold (argc=%i %i)\n", argc, atoi(argv[2]));
 		return(0);
 	}
 
+	strcpy(file_name, argv[1]);
+	int const N              = atoi(argv[2]);
+	int const M              = atoi(argv[3]);
+	int const K              = atoi(argv[4]);
+	int const Kpad           = K + (PAD - K % PAD);
+	int const nTests         = atoi(argv[5]);
+	int const stop_threshold = atoi(argv[6]);
+
     printf("file=%s\nN=%i M=%i K=%i nTests=%i stop_threshold=%i\n", file_name, N, M, K, nTests, stop_threshold);
 
-	#ifdef NVIDIA_DEVICE
+#ifdef NVIDIA_DEVICE
     	CUDASelector selector;
-	#ifdef INTEL_IGPU_DEVICE
+#endif
+#ifdef INTEL_IGPU_DEVICE
 		NEOGPUDeviceSelector selector;
-	#else // CPU_DEVICE
+#else // CPU_DEVICE
 		cpu_selector selector;
-	#endif
+#endif
 
 	try {
 		queue q(selector);
