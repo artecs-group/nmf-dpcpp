@@ -3,7 +3,7 @@
 #include <malloc.h>
 #include <time.h>
 #include <sys/time.h>
-#include "./kernels/bare/bare.h" //default kernels
+#include "./kernels/bare_kernel/bare_kernel.h" //default kernels
 
 double gettime() {
 	double final_time;

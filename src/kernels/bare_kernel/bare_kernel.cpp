@@ -1,4 +1,4 @@
-#include "./bare.h"
+#include "./bare_kernel.h"
 
 
 void W_mult_H(queue *q, buffer<real, 2> *b_WH, buffer<real, 2> *b_W, buffer<real, 2> *b_Htras, int N, int M, int K) {

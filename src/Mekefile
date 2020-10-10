@@ -1,45 +1,31 @@
-VENDOR      = intel
 OPTIMIZE    = yes
 DEBUG       = no
 DEVICE      = cpu # {cpu, nvidia, igpu}
 KERNEL     = bare # {bare, blas, cublas}
 
 
-# Standard flags
-CFLAGS := -std=c++11 -Wall
-
-# Linker flags
-LDFLAGS = -lm
-
-# Program code
-PFLAGS = CPU_DEVICE BARE_KERNEL
+# Program flags
+PDEVICE = CPU_DEVICE
+PKERNEL = BARE_KERNEL
 
 ifeq ($(DEVICE), nvidia)
-  PFLAGS = NVIDIA_DEVICE
+  PDEVICE = NVIDIA_DEVICE
 else ifeq ($(DEVICE), igpu)
-  PFLAGS = INTEL_IGPU_DEVICE
-else
-  PFLAGS = CPU_DEVICE
+  PDEVICE = INTEL_IGPU_DEVICE
 endif
 
 ifeq ($(KERNEL), blas)
-  PFLAGS += BLAS_KERNEL
+  PKERNEL = BLAS_KERNEL
 else ifeq ($(KERNEL), cublas)
   ifeq ($(DEVICE), nvidia)
-    PFLAGS += CUBLAS_KERNEL
-  else
-    PFLAGS += BARE_KERNEL
+    PKERNEL = CUBLAS_KERNEL
   endif
-else
-  PFLAGS += BARE_KERNEL
 endif
 
-# Intel DPC++ Compiler
-ifneq (,$(findstring intel,$(VENDOR)))
-  CC = clang++
-  CFLAGS += -fsycl -fsycl-unnamed-lambda
-  LDFLAGS += 
-endif
+
+# Standard flags
+CC = clang++
+CFLAGS := -std=c++11 -Wall -fsycl -fsycl-unnamed-lambda -D$(PDEVICE) -D$(PKERNEL)
 
 # Flags for nvidia gpu
 ifneq (,$(findstring nvidia, $(DEVICE)))
@@ -56,26 +42,24 @@ ifeq ($(OPTIMIZE),yes)
   CFLAGS += -O3
 endif
 
-backprop: backprop_sycl.o backprop.o imagenet.o facetrain.o
-	$(CC) $(CFLAGS) backprop_sycl.o backprop.o imagenet.o facetrain.o -o backprop $(LDFLAGS)
 
-%.o: %.[ch]
-	$(CC) $(CFLAGS) $< -c
+nmf: bare_kernel.o nmf.o common.o
+	$(CC) $(CFLAGS) -o nmf bare_kernel.o nmf.o common.o
 
-backprop_sycl.o: backprop_sycl.cpp bpnn_adjust_weights.sycl  bpnn_layerforward.sycl
-	$(CC) $(CFLAGS) backprop_sycl.cpp -c
-	
-backprop.o: backprop.c 
-	$(CC) $(CFLAGS) backprop.c -c
-	
-facetrain.o: facetrain.c
-	$(CC) $(CFLAGS) facetrain.c -c
+nmf.o: nmf_LeeSeung.cpp bare_kernel.o
+  $(CC) $(CFLAGS) -c nmf_LeeSeung.cpp
 
-imagenet.o: imagenet.c
-	$(CC) $(CFLAGS) imagenet.c -c
+bare_kernel.o: bare_kernel.cpp bare_kernel.h common.o
+	$(CC) $(CFLAGS) -c bare_kernel.cpp
 
-run: backprop
-	./backprop 65536
+common.o: common.cpp common.h
+	$(CC) $(CFLAGS) -c common.cpp
 
+
+
+run: nmf
+	./nmf V.bin 500 128 4 100 20
+
+.PHONY: clean
 clean:
-	rm -f *.o *~ backprop *.linkinfo
+	rm -f *.o *~ nmf *.linkinfo

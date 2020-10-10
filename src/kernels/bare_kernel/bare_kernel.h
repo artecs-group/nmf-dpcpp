@@ -1,5 +1,5 @@
-#ifndef _BARE_
-#define _BARE_
+#ifndef _BARE_KERNEL_
+#define _BARE_KERNEL_
 
 #include "common.h"
 
