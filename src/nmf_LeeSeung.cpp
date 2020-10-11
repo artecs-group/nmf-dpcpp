@@ -16,21 +16,34 @@ double gettime() {
 }
 
 
-void init_memory1D(int nx, buffer<real, 1> &buff) {
-    auto memory = buff.get_access<sycl_write>();
+real *get_memory1D(int nx){ 
+	real *buffer = new real[nx];	
 
-	for(int i = 0; i < nx; i++)
-		memory[i] = (real)(i*10);
+	// if( (buffer=(real *)malloc(nx*sizeof(real))) == NULL ){
+	// 	fprintf( stderr, "ERROR in memory allocation\n" );
+	// 	return( NULL );
+	// }
+
+	for(int i = 0; i < nx; i++ )
+		buffer[i] = (real)(i*10);
+
+	return( buffer );
+}
+
+
+void delete_memory1D(real *buffer) { 
+	//free(buffer);
+	delete[] buffer;
 }
 
 
 unsigned char *get_memory1D_uchar(int nx) { 
-	unsigned char *buffer;	
+	unsigned char *buffer = new unsigned char[nx];
 
-	if( (buffer=(unsigned char *)malloc(nx*sizeof(int)))== NULL ) {
-		fprintf( stderr, "ERROR in memory allocation\n" );
-		return( NULL );
-	}
+	// if( (buffer=(unsigned char *)malloc(nx*sizeof(int)))== NULL ) {
+	// 	fprintf( stderr, "ERROR in memory allocation\n" );
+	// 	return( NULL );
+	// }
 
     for(int i = 0; i < nx; i++)
 		buffer[i] = (int)(0);
@@ -40,24 +53,46 @@ unsigned char *get_memory1D_uchar(int nx) {
 
 
 void delete_memory1D_uchar(unsigned char *buffer) { 
-	free(buffer);
+	//free(buffer);
+	delete[] buffer;
+}
+
+
+real *get_memory2D_in_1D(int nx, int ny) {
+	real *buffer = new real[nx*ny];
+
+	// if( (buffer = (real *) malloc(nx*ny*sizeof(real))) == NULL) {
+	// 	fprintf( stderr, "ERROR in memory allocation\n" );
+	// 	return( NULL );
+	// }
+	for (int i = 1; i < nx; i++)
+		buffer[i*nx] = buffer[(i-1)*nx] + ny;
+
+	for(int i = 0; i < nx; i++)
+		for(int j = 0; j < ny; j++)
+			buffer[i*nx + j] = (real)(i*100 + j);
+
+	return( buffer );
 }
 
 
 real **get_memory2D(int nx, int ny) {
 	int i,j;
-	real **buffer;
+	real **buffer = new real*[nx];
 
-	if( (buffer=(real **)malloc(nx*sizeof(real *)))== NULL ) {
-		fprintf( stderr, "ERROR in memory allocation\n" );
-		return( NULL );
-	}
+	for(int i = 0; i < nx; i++)
+		buffer[i] = new real[ny];
 
-	if( (buffer[0]=(real *)malloc(nx*ny*sizeof(real)))==NULL ) {
-		fprintf( stderr, "ERROR in memory allocation\n" );
-		free( buffer );
-		return( NULL );
-	}
+	// if( (buffer=(real **)malloc(nx*sizeof(real *)))== NULL ) {
+	// 	fprintf( stderr, "ERROR in memory allocation\n" );
+	// 	return( NULL );
+	// }
+
+	// if( (buffer[0]=(real *)malloc(nx*ny*sizeof(real)))==NULL ) {
+	// 	fprintf( stderr, "ERROR in memory allocation\n" );
+	// 	free( buffer );
+	// 	return( NULL );
+	// }
 
 	for (i = 1; i < nx; i++)
 		buffer[i] = buffer[i-1] + ny;
@@ -70,20 +105,12 @@ real **get_memory2D(int nx, int ny) {
 }
 
 
-void init_memory2D(int nx, int ny, buffer<real, 1> &buff) { 
-    auto memory = buff.get_access<sycl_read_write>();
+void delete_memory2D(real **buffer, int size) { 
+	//free(buffer);
+	for(int i = 0; i < size; i++)
+		delete[] buffer[i];
 
-	for(int i = 1; i < nx; i++)
-		memory[i*nx] = memory[(i-1)*nx] + ny;
-
-	for(int i = 0; i < nx; i++)
-		for(int j = 0; j < ny; j++)
-			memory[i*nx + j] = (real)(i*100 + j);
-}
-
-
-void delete_memory2D(real **buffer) { 
-	free(buffer);
+	delete[] buffer;
 }
 
 
@@ -93,19 +120,16 @@ void matrix_copy1D_uchar(unsigned char *in, unsigned char *out, int nx) {
 }
 
 
-void matrix_copy2D(buffer<real, 1> &b_in, real **out, int nx, int ny) {
+void matrix_copy2D(buffer<real, 1> &b_in, real *out, int nx, int ny) {
 	auto in = b_in.get_access<sycl_read>();
 	
 	for (int i = 0; i < nx; i++)
 		for(int j = 0; j < ny; j++)
-			out[i][j] = in[i*nx + j];
+			out[i*nx + j] = in[i*nx + j];
 }
 
 
-// TODO: check
-void initWH(buffer<real, 1> &b_W, buffer<real, 1> &b_Htras, int N, int M, 
-    int K, int Kpad)
-{
+void initWH(buffer<real, 1> &b_W, buffer<real, 1> &b_Htras, int N, int M, int K) {
 	int i,j;
 	
     auto W = b_W.get_access<sycl_write>();
@@ -116,24 +140,23 @@ void initWH(buffer<real, 1> &b_W, buffer<real, 1> &b_Htras, int N, int M,
 
 	/* Generated random values between 0.00 - 1.00 */	
 	fd = fopen("/dev/urandom", "r");
-	fread(&seedi, sizeof(int), 1, fd); 
+	fread(&seedi, sizeof(int), 1, fd);
 	fclose(fd);
-	srand(seedi); 
-	
+	srand(seedi);
 	for (i = 0; i < N; i++) {
 		for (j = 0; j < K; j++)
 			W[i*N + j] = ((real)(rand()))/RAND_MAX;
 			//W[i][j] = (real)(i);
-		for (j = K; j < Kpad; j++)
-			W[i*N + j] = 0.0;
+		// for (j = K; j < Kpad; j++)
+		// 	W[i*N + j] = 0.0;
 	}
 
 	for (i = 0; i < M; i++) {
         for (j = 0; j < K; j++)
 			Htras[i*M + j] = ((real)(rand()))/RAND_MAX;
 			//Htras[i][j] = (real)(i);
-		for (j = K; j < Kpad; j++)
-			Htras[i*M + j] = 0.0;
+		// for (j = K; j < Kpad; j++)
+		// 	Htras[i*M + j] = 0.0;
 	}
 
 #ifdef DEBUG
@@ -149,7 +172,7 @@ void initWH(buffer<real, 1> &b_W, buffer<real, 1> &b_Htras, int N, int M,
         for (j=0; j<K; j++)
 			W[i*N + j] = Wtmp[i][j];
 
-	delete_memory2D(Wtmp);
+	delete_memory2D(Wtmp, N);
 
 	int size_H = M*K;
 	real **Htmp = get_memory2D(M, K);
@@ -161,13 +184,13 @@ void initWH(buffer<real, 1> &b_W, buffer<real, 1> &b_Htras, int N, int M,
         for (j=0; j<K; j++)
 			Htras[i*M + j] = Htmp[i][j];
 
-	delete_memory2D(Htmp);
+	delete_memory2D(Htmp, M);
 	
 #endif
 }
 
 
-void printMATRIX(real **m, int I, int J) {
+void printMATRIX(real *m, int I, int J) {
 	int i, j;
 	
 	printf("--------------------- matrix --------------------\n");
@@ -191,34 +214,30 @@ void printMATRIX(real **m, int I, int J) {
 			printf("Line %i: ", i);
 
 		for (j=0; j<J; j++)
-			printf("%5.4f ", m[i][j]);
+			printf("%5.4f ", m[i*I + j]);
 		printf("\n");
 	}
 }
 
 
-void initV(int N, int M, char* file_name, buffer<real, 1> &b_V) {
-	FILE *fIn;
-	
-	/* Local variables */
+real *get_V(int N, int M, char* file_name) {
+	real *V = (real *)get_memory2D_in_1D(N, M);
+
+#ifndef RANDOM
+	FILE *fIn = fopen(file_name, "r");
 	const int size_V = N*M;
-    auto V = b_V.get_access<sycl_write>();
 
-	fIn = fopen(file_name, "r");
-
-#ifndef RANDOM 
 	if (sizeof(real) == sizeof(float)) {
 		fread(&V[0], sizeof(float), size_V, fIn);
 		fclose(fIn);
 	} 
     else {
-		int i, j;
 		float *Vaux = (float*)malloc(size_V*sizeof(float));
 		fread(&Vaux[0], sizeof(float), size_V, fIn);
 		fclose(fIn);
 
-		for (i=0; i<N; i++)
-			for (j=0; j<M; j++)
+		for (int i = 0; i < N; i++)
+			for (int j = 0; j < M; j++)
 				V[i*N + j] = Vaux[i*M + j];
 	}
 #else
@@ -230,11 +249,13 @@ void initV(int N, int M, char* file_name, buffer<real, 1> &b_V) {
     fclose (fd);
     srand( seedi );
 
-    for (i=0; i<N; i++)
-        for (j=0; j<M; j++)
+    for (int i = 0; i < N; i++)
+        for (int j = 0; j < M; j++)
             V[i*N + j] = ((real)(rand()))/RAND_MAX;
 
+	fclose(fd);
 #endif
+	return(V);
 }
 
 
@@ -334,29 +355,29 @@ real get_Error(buffer<real, 1> &b_V, buffer<real, 1> &b_W,
 }
 
 
-void writeSolution(real **W, real**Ht, unsigned char *consensus, int N, int M,
+void writeSolution(real *W, real*Ht, unsigned char *consensus, int N, int M,
     int K, int nTests)
 {
 	FILE *fOut;
 	char file[100];
-	real **H;
+	real *H;
 	
-	H = get_memory2D(K, M);
+	H = get_memory2D_in_1D(K, M);
 	for (int i = 0; i < K; i++)
 		for (int j = 0; j < M; j++)
-			H[i][j] = Ht[j][i];
+			H[i*K + j] = Ht[j*M + i];
 	
 	sprintf(file,"solution-NMFLeeSeung_%i", K);
 	fOut = fopen(file, "w");
 	fwrite( &N, sizeof(int), 1, fOut);
 	fwrite( &M, sizeof(int), 1, fOut);
 	fwrite( &K, sizeof(int), 1, fOut);
-	fwrite( W[0], sizeof(real), N*K, fOut);
-	fwrite( H[0], sizeof(real), K*M, fOut);
+	fwrite( &W[0], sizeof(real), N*K, fOut);
+	fwrite( &H[0], sizeof(real), K*M, fOut);
 	fwrite( &nTests, sizeof(int), 1, fOut);
 	fwrite( consensus, sizeof(unsigned char), (M*(M-1))/2, fOut);
 	fclose( fOut );
-	delete_memory2D(H);
+	delete_memory1D(H);
 }
 
 
@@ -398,14 +419,16 @@ int main(int argc, char *argv[]) {
 	int niters;
 
 	queue q;
+	const property_list props = property::buffer::use_host_ptr();
 
-	real **W_best, **Htras_best;
+	real *h_V, *h_WH, *h_W, *h_Htras, *h_Haux, *h_Waux, *h_acumm_W, *h_acumm_H;
+	real *W_best, *Htras_best;
 	unsigned char *classification, *last_classification;
 	unsigned char *consensus;
 
 	int stop;
 	char file_name[255];
-	int test, iter;
+	int iter;
 	int diff, inc;
 	
 	double time0, time1;
@@ -421,12 +444,11 @@ int main(int argc, char *argv[]) {
 	}
 
 	strcpy(file_name, argv[1]);
-	const int N              = atoi(argv[2]);
-	const int M              = atoi(argv[3]);
-	const int K              = atoi(argv[4]);
-	const int Kpad           = K + (PAD - K % PAD);
-	const int nTests         = atoi(argv[5]);
-	const int stop_threshold = atoi(argv[6]);
+	int N              = atoi(argv[2]);
+	int M              = atoi(argv[3]);
+	int K              = atoi(argv[4]);
+	int nTests         = atoi(argv[5]);
+	int stop_threshold = atoi(argv[6]);
 
     printf("file=%s\nN=%i M=%i K=%i nTests=%i stop_threshold=%i\n", file_name, N, M, K, nTests, stop_threshold);
 
@@ -447,45 +469,45 @@ int main(int argc, char *argv[]) {
 		return(0);
 	}
 
-    buffer<real, 1> b_V(N * M);
-    buffer<real, 1> b_W(N * Kpad);
-    buffer<real, 1> b_Htras(M * Kpad);
-    buffer<real, 1> b_WH(N * M);
-    buffer<real, 1> b_Haux(M * Kpad);
-    buffer<real, 1> b_Waux(N * Kpad);
-    buffer<real, 1> b_acumm_W(Kpad);
-    buffer<real, 1> b_acumm_H(Kpad);
+	h_V                 = get_V(N, M, file_name);
+	//h_V                 = (real *)get_memory2D_in_1D(N, M);
+	h_W                 = (real *)get_memory2D_in_1D(N, K);
+	h_Htras             = (real *)get_memory2D_in_1D(M, K);
+	h_WH                = (real *)get_memory2D_in_1D(N, M);
+	h_Haux              = (real *)get_memory2D_in_1D(M, K);
+	h_Waux              = (real *)get_memory2D_in_1D(N, K);
+	h_acumm_W           = (real *)get_memory1D(K);
+	h_acumm_H           = (real *)get_memory1D(K);
 
-    initV(N, M, file_name, b_V);
-    init_memory2D(N, Kpad, b_W);
-    init_memory2D(M, Kpad, b_Htras);
-    init_memory2D(N, M, b_WH);
-    init_memory2D(M, Kpad, b_Haux);
-    init_memory2D(N, Kpad, b_Waux);
-    init_memory1D(Kpad, b_acumm_W);
-    init_memory1D(Kpad, b_acumm_H);
+    W_best              = (real *)get_memory2D_in_1D(N, K);
+    Htras_best          = (real *)get_memory2D_in_1D(M, K);
+    classification      = (unsigned char *)get_memory1D_uchar(M);
+	last_classification = (unsigned char *)get_memory1D_uchar(M);
+	consensus           = (unsigned char *)get_memory1D_uchar(M*(M-1)/2);
 
-    W_best              = get_memory2D(N, Kpad);
-    Htras_best          = get_memory2D(M, Kpad);
-    classification      = get_memory1D_uchar(M);
-	last_classification = get_memory1D_uchar(M);
-	consensus           = get_memory1D_uchar(M*(M-1)/2);
-
+    buffer<real, 1> b_V(h_V, N * M, props);
+    buffer<real, 1> b_W(h_W, N * K, props);
+    buffer<real, 1> b_Htras(h_Htras, M * K, props);
+    buffer<real, 1> b_WH(h_WH, N * M, props);
+    buffer<real, 1> b_Haux(h_Haux, M * K, props);
+    buffer<real, 1> b_Waux(h_Waux, N * K, props);
+    buffer<real, 1> b_acumm_W(h_acumm_W, K, props);
+    buffer<real, 1> b_acumm_H(h_acumm_H, K, props);
 	/**********************************/
 	/******     MAIN PROGRAM     ******/
 	/**********************************/
 	time0 = gettime();
 
-	for (test=0; test<nTests; test++) {
+	for(int test = 0; test < nTests; test++) {
 		/* Init W and H */
-		initWH(b_W, b_Htras, N, M, K, Kpad);
+		initWH(b_W, b_Htras, N, M, K);
 
-		niters = 2000/NITER_TEST_CONV;
+		niters = 2000 / NITER_TEST_CONV;
 
 		stop   = 0;
 		iter   = 0;
 		inc    = 0;
-		while (iter<niters && !stop) {
+		while(iter < niters && !stop) {
 			iter++;
 
 			/* Main Proccess of NMF Brunet */
@@ -537,8 +559,16 @@ int main(int argc, char *argv[]) {
 	writeSolution(W_best, Htras_best, consensus, N, M, K, nTests);
 
     /* Free memory used */
-	delete_memory2D(W_best);
-	delete_memory2D(Htras_best);
+	delete_memory1D(h_V);
+	delete_memory1D(h_W);
+	delete_memory1D(h_Htras);
+	delete_memory1D(h_WH);
+	delete_memory1D(h_Haux);
+	delete_memory1D(h_Waux);
+	delete_memory1D(h_acumm_W);
+	delete_memory1D(h_acumm_H);
+	delete_memory1D(W_best);
+	delete_memory1D(Htras_best);
 	delete_memory1D_uchar(classification);
 	delete_memory1D_uchar(last_classification);
 	delete_memory1D_uchar(consensus);
