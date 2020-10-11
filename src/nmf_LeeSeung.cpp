@@ -430,13 +430,14 @@ int main(int argc, char *argv[]) {
 
     printf("file=%s\nN=%i M=%i K=%i nTests=%i stop_threshold=%i\n", file_name, N, M, K, nTests, stop_threshold);
 
-#ifdef NVIDIA_DEVICE
-    	CUDASelector selector;
-#endif
-#ifdef INTEL_IGPU_DEVICE
-		NEOGPUDeviceSelector selector;
-#else // CPU_DEVICE
-		cpu_selector selector;
+#if defined(INTEL_IGPU_DEVICE)
+	NEOGPUDeviceSelector selector;
+#elif defined(NVIDIA_DEVICE)
+	CUDASelector selector;
+#elif defined(CPU_DEVICE)	
+	cpu_selector selector;
+#else
+	default_selector selector;
 #endif
 
 	try {
