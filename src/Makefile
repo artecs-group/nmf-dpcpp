@@ -44,19 +44,23 @@ endif
 
 
 nmf: nmf_LeeSeung.o ./kernels/bare_kernel/bare_kernel.o ./kernels/common.o
-	$(CC) $(CFLAGS) -o nmf nmf_LeeSeung.o ./kernels/bare_kernel/bare_kernel.o ./kernels/common.o
+	$(CC) $(CFLAGS) nmf_LeeSeung.o \
+    ./kernels/bare_kernel/bare_kernel.o \
+    ./kernels/common.o \
+    -o nmf
 
 nmf_LeeSeung.o: ./kernels/bare_kernel/bare_kernel.o ./kernels/common.o nmf_LeeSeung.cpp
-	$(CC) $(CFLAGS) -c nmf_LeeSeung.cpp
+	$(CC) $(CFLAGS) nmf_LeeSeung.cpp -c -o nmf_LeeSeung.o
 
 ./kernels/bare_kernel/bare_kernel.o: ./kernels/bare_kernel/bare_kernel.cpp \
   ./kernels/bare_kernel/bare_kernel.h \
   ./kernels/common.o
-	$(CC) $(CFLAGS) -c ./kernels/bare_kernel/bare_kernel.cpp
+	$(CC) $(CFLAGS) ./kernels/bare_kernel/bare_kernel.cpp -c \
+    -o ./kernels/bare_kernel/bare_kernel.o
 
 ./kernels/common.o: ./kernels/common.cpp ./kernels/common.h
-	$(CC) $(CFLAGS) -c ./kernels/common.cpp
-
+	$(CC) $(CFLAGS) ./kernels/common.cpp -c \
+    -o ./kernels/common.o
 
 
 run: nmf

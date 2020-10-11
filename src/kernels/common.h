@@ -59,8 +59,8 @@ const int NITER_TEST_CONV = 10;
 /* Spacing of floating point numbers. */
 const real eps = 2.2204e-16;
 
-void adjust_WH(queue &q, buffer<real, 2> &b_W, buffer<real, 2> &b_Ht, int N, int M, int K);
-void V_div_WH(queue &q, buffer<real, 2> &b_V, buffer<real, 2> &b_WH, int N, int M);
-void mult_M_div_vect(queue &q, buffer<real, 2> &b_M, buffer<real, 2> &b_Maux, buffer<real, 1> &b_acc, int M, int K);
+void adjust_WH(queue &q, buffer<real, 1> &b_W, buffer<real, 1> &b_Ht, int N, int M, int K);
+void V_div_WH(queue &q, buffer<real, 1> &b_V, buffer<real, 1> &b_WH, int N, int M);
+void mult_M_div_vect(queue &q, buffer<real, 1> &b_M, buffer<real, 1> &b_Maux, buffer<real, 1> &b_acc, int M, int K);
 
 #endif
