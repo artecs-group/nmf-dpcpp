@@ -2,7 +2,7 @@
 
 void adjust_WH(queue &q, buffer<real, 1> &b_W, buffer<real, 1> &b_Ht, int N, int M, int K) {
     q.submit([&](handler& cgh) {
-        auto W = b_W.get_access<sycl_read_write>();
+        auto W = b_W.get_access<sycl_read_write>(cgh);
 
         cgh.parallel_for<class check_W>(range<2>(N, K), [=](id <2> ij){
             int i = ij[0];
@@ -14,7 +14,7 @@ void adjust_WH(queue &q, buffer<real, 1> &b_W, buffer<real, 1> &b_Ht, int N, int
     });
 	
     q.submit([&](handler& cgh) {
-        auto Ht = b_Ht.get_access<sycl_read_write>();
+        auto Ht = b_Ht.get_access<sycl_read_write>(cgh);
 
         cgh.parallel_for<class check_Ht>(range<2>(M, K), [=](id <2> ij){
             int i = ij[0];
@@ -29,8 +29,8 @@ void adjust_WH(queue &q, buffer<real, 1> &b_W, buffer<real, 1> &b_Ht, int N, int
 
 void V_div_WH(queue &q, buffer<real, 1> &b_V, buffer<real, 1> &b_WH, int N, int M) {
     q.submit([&](handler& cgh) {
-        auto V = b_V.get_access<sycl_read>();
-        auto WH = b_WH.get_access<sycl_read_write>();
+        auto V = b_V.get_access<sycl_read>(cgh);
+        auto WH = b_WH.get_access<sycl_read_write>(cgh);
 
         cgh.parallel_for<class V_div_WH>(range<2>(N, M), [=](id <2> ij){
             int i = ij[0];
@@ -44,9 +44,9 @@ void V_div_WH(queue &q, buffer<real, 1> &b_V, buffer<real, 1> &b_WH, int N, int 
 
 void mult_M_div_vect(queue &q, buffer<real, 1> &b_M, buffer<real, 1> &b_Maux, buffer<real, 1> &b_acc, int M, int K) {
     q.submit([&](handler& cgh) {
-        auto Mat = b_M.get_access<sycl_read_write>();
-        auto Maux = b_Maux.get_access<sycl_read>();
-        auto acc = b_acc.get_access<sycl_read>();
+        auto Mat = b_M.get_access<sycl_read_write>(cgh);
+        auto Maux = b_Maux.get_access<sycl_read>(cgh);
+        auto acc = b_acc.get_access<sycl_read>(cgh);
 
         cgh.parallel_for<class mul_M_div_vect>(range<2>(M, K), [=](id <2> ij){
             int i = ij[0];

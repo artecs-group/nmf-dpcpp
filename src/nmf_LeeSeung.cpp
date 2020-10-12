@@ -320,7 +320,8 @@ void writeSolution(real *W, real*Ht, unsigned char *consensus, int N, int M,
 }
 
 
-void nmf(int niter, queue &q, buffer<real, 1> &b_V, buffer<real, 1> &b_WH, 
+void nmf(int niter, queue &q, 
+	buffer<real, 1> &b_V, buffer<real, 1> &b_WH, 
 	buffer<real, 1> &b_W, buffer<real, 1> &b_Htras, 
     buffer<real, 1> &b_Waux, buffer<real, 1> &b_Haux,
 	buffer<real, 1> &b_accW, buffer<real, 1> &b_accH,

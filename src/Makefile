@@ -63,4 +63,4 @@ run: nmf
 
 .PHONY: clean
 clean:
-	rm -f *.o *~ nmf *.linkinfo
+	rm -f *.o *~ nmf *.linkinfo solution-NMFLeeSeung_*
