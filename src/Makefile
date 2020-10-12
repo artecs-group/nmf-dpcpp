@@ -67,4 +67,4 @@ run: nmf
 
 .PHONY: clean
 clean:
-	rm -f *.o *~ nmf *.linkinfo solution-NMFLeeSeung_*
+	rm -f *.o ./kernels/*.o ./kernels/bare_kernel/*.o nmf solution-NMFLeeSeung_*
