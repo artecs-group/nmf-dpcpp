@@ -2,11 +2,12 @@ OPTIMIZE    = yes
 DEBUG       = no
 DEVICE      = cpu # {cpu, nvidia, igpu}
 KERNEL      = bare # {bare, blas, cublas}
-
+REAL        = yes
 
 # Program flags
 PDEVICE = CPU_DEVICE
 PKERNEL = BARE_KERNEL
+PREAL = REAL
 
 ifeq ($(DEVICE), nvidia)
   PDEVICE = NVIDIA_DEVICE
@@ -22,10 +23,13 @@ else ifeq ($(KERNEL), cublas)
   endif
 endif
 
+ifeq ($(REAL), no)
+  PREAL = NON_REAL
+endif
 
 # Standard flags
 CC = clang++
-CFLAGS := -std=c++11 -Wall -fsycl -D$(PDEVICE) -D$(PKERNEL)
+CFLAGS := -std=c++11 -Wall -fsycl -D$(PDEVICE) -D$(PKERNEL) -D$(REAL)
 
 # Debug Flags
 ifeq ($(DEBUG),yes)

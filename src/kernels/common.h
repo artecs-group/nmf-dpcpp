@@ -63,7 +63,7 @@ class HostCPUDeviceSelector : public device_selector {
 const bool verbose = false;
 const char PAD = 32;
 
-#if REAL <=4
+#ifdef REAL
 	#define real float
 	#define rmax(a,b) ( ( (a) > (b) )? (a) : (b) )
 	#define rsqrt sqrtf
