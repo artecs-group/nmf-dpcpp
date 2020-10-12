@@ -39,7 +39,7 @@ class NEOGPUDeviceSelector : public device_selector {
 };
 
 //#define RANDOM
-#define DEBUG
+//#define DEBUG
 const bool verbose = false;
 const char PAD = 32;
 

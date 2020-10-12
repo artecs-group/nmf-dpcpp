@@ -8,8 +8,8 @@ void adjust_WH(queue &q, buffer<real, 1> &b_W, buffer<real, 1> &b_Ht, int N, int
             int i = ij[0];
             int j = ij[1];
 
-            if(W[i*N + j] < eps)
-                W[i*N + j] = eps;
+            if(W[i*K + j] < eps)
+                W[i*K + j] = eps;
         });
     });
 	
@@ -20,8 +20,8 @@ void adjust_WH(queue &q, buffer<real, 1> &b_W, buffer<real, 1> &b_Ht, int N, int
             int i = ij[0];
             int j = ij[1];
 
-            if(Ht[i*M + j] < eps)
-                Ht[i*M + j] = eps;
+            if(Ht[i*K + j] < eps)
+                Ht[i*K + j] = eps;
         });
     });	 
 }
@@ -36,7 +36,7 @@ void V_div_WH(queue &q, buffer<real, 1> &b_V, buffer<real, 1> &b_WH, int N, int 
             int i = ij[0];
             int j = ij[1];
 
-            WH[i*N + j] = V[i*N + j] / WH[i*N + j];
+            WH[i*M + j] = V[i*M + j] / WH[i*M + j];
         });
     });
 }
@@ -52,7 +52,7 @@ void mult_M_div_vect(queue &q, buffer<real, 1> &b_M, buffer<real, 1> &b_Maux, bu
             int i = ij[0];
             int j = ij[1];
 
-            Mat[i*M + j] = Mat[i*M + j] * Maux[i*M + j] / acc[j];
+            Mat[i*K + j] = Mat[i*K + j] * Maux[i*K + j] / acc[j];
         });
     });
 }

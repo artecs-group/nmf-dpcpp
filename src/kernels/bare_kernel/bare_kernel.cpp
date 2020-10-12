@@ -12,7 +12,7 @@ void W_mult_H(queue &q, buffer<real, 1> &b_WH, buffer<real, 1> &b_W, buffer<real
             int j = ij[1];
 
             for(int k = 0; k < K; k++)
-                WH[i*N + j] += W[i*N + k] * Htras[j*M + k];
+                WH[i*M + j] += W[i*K + k] * Htras[j*K + k];
         });
     });
 }
@@ -36,7 +36,7 @@ void accum(queue &q, buffer<real, 1> &b_acc, buffer<real, 1> &b_X, int N, int M)
             int i = ij[0];
             int j = ij[1];
 
-            acc[j] += X[(i+1)*(N-1) + j];
+            acc[j] += X[(i+1)*M + j];
         });
     });
 }
@@ -50,7 +50,7 @@ void Wt_mult_WH(queue &q, buffer<real, 1> &b_Haux, buffer<real, 1> &b_W, buffer<
             int i = ij[0];
             int j = ij[1];
 
-            Haux[i*M + j] = 0.0;
+            Haux[i*K + j] = 0.0;
         });
     });
 
@@ -64,7 +64,7 @@ void Wt_mult_WH(queue &q, buffer<real, 1> &b_Haux, buffer<real, 1> &b_W, buffer<
             int i = kij[1];
             int j = kij[2];
 
-            Haux[j*M + i] += W[k*N + i] * WH[k*N + j];
+            Haux[j*K + i] += W[k*K + i] * WH[k*M + j];
         });
     });
 }
@@ -80,10 +80,10 @@ void WH_mult_Ht(queue &q, buffer<real, 1> &b_Waux, buffer<real, 1> &b_WH, buffer
             int i = ij[0];
             int j = ij[1];
 
-            Waux[i*N + j] = 0.0;
+            Waux[i*K + j] = 0.0;
 
             for(int k = 0; k < M; k++)
-                Waux[j*K + i] += WH[k*M + i] * Htras[k*M + j];
+                Waux[i*K + j] += WH[i*K + k] * Htras[k*K + j];
         });
     });
 }
