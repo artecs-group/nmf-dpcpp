@@ -21,7 +21,7 @@ class CUDASelector : public device_selector {
             const std::string DriverVersion = Device.get_info<info::device::driver_version>();
 
             if (Device.is_gpu() && (DriverVersion.find("CUDA") != std::string::npos)) {
-                std::cout << std::endl << "CUDA GPU found " << std::endl << std::endl;
+                std::cout << std::endl << "Running on  CUDA GPU" << std::endl << std::endl;
                 return 1;
             }
 
@@ -36,7 +36,21 @@ class NEOGPUDeviceSelector : public device_selector {
             const std::string DeviceName = Device.get_info<info::device::name>();
 
             if (Device.is_gpu() && (DeviceName.find("HD Graphics NEO") != std::string::npos)) {
-                std::cout << std::endl << "HD Graphics NEO GPU found" << std::endl << std::endl;
+                std::cout << std::endl << "Running on HD Graphics NEO GPU" << std::endl << std::endl;
+                return 1;
+            }
+
+            return 0;
+        }
+};
+
+class HostCPUDeviceSelector : public device_selector {
+    public:
+        int operator()(const device &Device) const override {
+            const std::string DeviceName = Device.get_info<info::device::name>();
+
+            if (Device.is_host()) {
+                std::cout << std::endl << "Running on host CPU" << std::endl << std::endl;
                 return 1;
             }
 

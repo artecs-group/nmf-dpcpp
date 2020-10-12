@@ -395,7 +395,7 @@ int main(int argc, char *argv[]) {
 #elif defined(NVIDIA_DEVICE)
 	CUDASelector selector;
 #elif defined(CPU_DEVICE)	
-	cpu_selector selector;
+	HostCPUDeviceSelector selector;
 #else
 	default_selector selector;
 #endif
