@@ -19,11 +19,6 @@ double gettime() {
 real *get_memory1D(int nx){ 
 	real *buffer = new real[nx];	
 
-	// if( (buffer=(real *)malloc(nx*sizeof(real))) == NULL ){
-	// 	fprintf( stderr, "ERROR in memory allocation\n" );
-	// 	return( NULL );
-	// }
-
 	for(int i = 0; i < nx; i++ )
 		buffer[i] = (real)(i*10);
 
@@ -32,18 +27,12 @@ real *get_memory1D(int nx){
 
 
 void delete_memory1D(real *buffer) { 
-	//free(buffer);
 	delete[] buffer;
 }
 
 
 unsigned char *get_memory1D_uchar(int nx) { 
 	unsigned char *buffer = new unsigned char[nx];
-
-	// if( (buffer=(unsigned char *)malloc(nx*sizeof(int)))== NULL ) {
-	// 	fprintf( stderr, "ERROR in memory allocation\n" );
-	// 	return( NULL );
-	// }
 
     for(int i = 0; i < nx; i++)
 		buffer[i] = (int)(0);
@@ -53,20 +42,12 @@ unsigned char *get_memory1D_uchar(int nx) {
 
 
 void delete_memory1D_uchar(unsigned char *buffer) { 
-	//free(buffer);
 	delete[] buffer;
 }
 
 
 real *get_memory2D_in_1D(int nx, int ny) {
 	real *buffer = new real[nx*ny];
-
-	// if( (buffer = (real *) malloc(nx*ny*sizeof(real))) == NULL) {
-	// 	fprintf( stderr, "ERROR in memory allocation\n" );
-	// 	return( NULL );
-	// }
-	// for (int i = 1; i < nx; i++)
-	// 	buffer[i*ny] = buffer[(i-1)*ny] + ny;
 
 	for(int i = 0; i < nx; i++)
 		for(int j = 0; j < ny; j++)
