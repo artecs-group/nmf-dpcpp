@@ -12,7 +12,7 @@ double gettime() {
 	gettimeofday(&tv1, (struct timezone*)0);
 	final_time = (tv1.tv_usec + (tv1.tv_sec)*1000000ULL);
 
-	return(final_time);
+	return final_time;
 }
 
 
@@ -103,10 +103,10 @@ void initWH(buffer<real, 1> &b_W, buffer<real, 1> &b_Htras, int N, int M, int K)
 #ifdef DEBUG
 	/* Added to debug */
 	FILE *fIn;
-	real **Wtmp = get_memory2D_in_1D(N, K);
+	real *Wtmp = get_memory2D_in_1D(N, K);
 	int size_W = N*K;
 	fIn = fopen("w_bin.bin", "r");
-	fread(&Wtmp[0][0], sizeof(real), size_W, fIn);
+	fread(Wtmp, sizeof(real), size_W, fIn);
 	fclose(fIn);
 
 	for (int i = 0; i < N; i++)
@@ -116,9 +116,9 @@ void initWH(buffer<real, 1> &b_W, buffer<real, 1> &b_Htras, int N, int M, int K)
 	delete_memory1D(Wtmp);
 
 	int size_H = M*K;
-	real **Htmp = get_memory2D_in_1D(M, K);
+	real *Htmp = get_memory2D_in_1D(M, K);
 	fIn = fopen("h_bin.bin", "r");
-	fread(&Htmp[0][0], sizeof(real), size_H, fIn);
+	fread(Htmp, sizeof(real), size_H, fIn);
 	fclose(fIn);
 
 	for (int i = 0; i < M; i++)
@@ -167,17 +167,19 @@ real *get_V(int N, int M, char* file_name) {
 	const int size_V = N*M;
 
 	if (sizeof(real) == sizeof(float)) {
-		fread(&V[0], sizeof(float), size_V, fIn);
+		fread(V, sizeof(float), size_V, fIn);
 		fclose(fIn);
 	}
     else {
 		float *Vaux = (float *) malloc(size_V * sizeof(float));
-		fread(&Vaux[0], sizeof(float), size_V, fIn);
+		fread(Vaux, sizeof(float), size_V, fIn);
 		fclose(fIn);
 
 		for (int i = 0; i < N; i++)
 			for (int j = 0; j < M; j++)
 				V[i*M + j] = Vaux[i*M + j];
+
+		free(Vaux);
 	}
 #else
 	/* Generated random values between 0.00 - 1.00 */
@@ -202,10 +204,9 @@ real *get_V(int N, int M, char* file_name) {
 int get_difference(unsigned char *classification, 
     unsigned char *last_classification, int nx)
 {
-	int diff;
+	int diff = 0;
 	int conn, conn_last;
 	
-	diff = 0;
 	for(int i = 0; i < nx; i++)
 		for(int j = i+1; j < nx; j++) {
 			conn = (int)( classification[j] == classification[i] );
@@ -275,11 +276,9 @@ real get_Error(buffer<real, 1> &b_V, buffer<real, 1> &b_W,
     auto W = b_W.get_access<sycl_read>();
     auto Htras = b_Htras.get_access<sycl_read>();
     
-
-	real error;
+	real error = 0.0;
 	real Vnew;
-	
-	error = 0.0;
+
 	for(int i = 0; i < N; i++) {
 		for(int j = 0; j < M; j++){
 			Vnew = 0.0;
@@ -299,9 +298,8 @@ void writeSolution(real *W, real*Ht, unsigned char *consensus, int N, int M,
 {
 	FILE *fOut;
 	char file[100];
-	real *H;
+	real *H = get_memory2D_in_1D(K, M);
 	
-	H = get_memory2D_in_1D(K, M);
 	for (int i = 0; i < K; i++)
 		for (int j = 0; j < M; j++)
 			H[i*M + j] = Ht[j*K + i];
@@ -311,8 +309,8 @@ void writeSolution(real *W, real*Ht, unsigned char *consensus, int N, int M,
 	fwrite( &N, sizeof(int), 1, fOut);
 	fwrite( &M, sizeof(int), 1, fOut);
 	fwrite( &K, sizeof(int), 1, fOut);
-	fwrite( &W[0], sizeof(real), N*K, fOut);
-	fwrite( &H[0], sizeof(real), K*M, fOut);
+	fwrite( W, sizeof(real), N*K, fOut);
+	fwrite( H, sizeof(real), K*M, fOut);
 	fwrite( &nTests, sizeof(int), 1, fOut);
 	fwrite( consensus, sizeof(unsigned char), (M*(M-1))/2, fOut);
 	fclose( fOut );
@@ -380,7 +378,7 @@ int main(int argc, char *argv[]) {
 	
 	if (argc != 7) {
 		printf("./exec dataInput.bin N M K nTests stop_threshold (argc=%i %i)\n", argc, atoi(argv[2]));
-		return(0);
+		return 1;
 	}
 
 	strcpy(file_name, argv[1]);
@@ -406,11 +404,11 @@ int main(int argc, char *argv[]) {
 		queue q(selector);
 	} catch (invalid_parameter_error &E) {
 		std::cout << E.what() << std::endl;
-		return(0);
+		return 1;
 	}
 
-	h_V                 = get_V(N, M, file_name);
-	//h_V                 = get_memory2D_in_1D(N, M);
+	//h_V                 = get_V(N, M, file_name);
+	h_V                 = get_memory2D_in_1D(N, M);
 	h_W                 = get_memory2D_in_1D(N, K);
 	h_Htras             = get_memory2D_in_1D(M, K);
 	h_WH                = get_memory2D_in_1D(N, M);
@@ -499,6 +497,8 @@ int main(int argc, char *argv[]) {
 	/* Write the solution of the problem */
 	writeSolution(W_best, Htras_best, consensus, N, M, K, nTests);
 
+	printMATRIX(W_best, N, K);
+
     /* Free memory used */
 	delete_memory1D(h_V);
 	delete_memory1D(h_W);
@@ -513,4 +513,6 @@ int main(int argc, char *argv[]) {
 	delete_memory1D_uchar(classification);
 	delete_memory1D_uchar(last_classification);
 	delete_memory1D_uchar(consensus);
+
+	return 0;
 }

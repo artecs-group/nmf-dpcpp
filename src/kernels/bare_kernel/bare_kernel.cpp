@@ -11,6 +11,8 @@ void W_mult_H(queue &q, buffer<real, 1> &b_WH, buffer<real, 1> &b_W, buffer<real
             int i = ij[0];
             int j = ij[1];
 
+            WH[i*M + j] = 0.0;
+
             for(int k = 0; k < K; k++)
                 WH[i*M + j] += W[i*K + k] * Htras[j*K + k];
         });
@@ -59,12 +61,12 @@ void Wt_mult_WH(queue &q, buffer<real, 1> &b_Haux, buffer<real, 1> &b_W, buffer<
         auto W = b_W.get_access<sycl_read>(cgh);
         auto WH = b_WH.get_access<sycl_read>(cgh);
 
-        cgh.parallel_for<class Wt_mul_WH>(range<3>(N, K, M), [=](id <3> kij){
-            int k = kij[0];
-            int i = kij[1];
-            int j = kij[2];
+        cgh.parallel_for<class Wt_mul_WH>(range<3>(N, K, M), [=](id <3> ijk){
+            int i = ijk[0];
+            int j = ijk[1];
+            int k = ijk[2];
 
-            Haux[j*K + i] += W[k*K + i] * WH[k*M + j];
+            Haux[k*K + j] += W[i*K + j] * WH[i*M + k];
         });
     });
 }
@@ -83,7 +85,7 @@ void WH_mult_Ht(queue &q, buffer<real, 1> &b_Waux, buffer<real, 1> &b_WH, buffer
             Waux[i*K + j] = 0.0;
 
             for(int k = 0; k < M; k++)
-                Waux[i*K + j] += WH[i*K + k] * Htras[k*K + j];
+                Waux[i*K + j] += WH[i*M + k] * Htras[k*K + j];
         });
     });
 }
