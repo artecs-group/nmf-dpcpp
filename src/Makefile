@@ -25,12 +25,7 @@ endif
 
 # Standard flags
 CC = clang++
-CFLAGS := -std=c++11 -Wall -fsycl -fsycl-unnamed-lambda -D$(PDEVICE) -D$(PKERNEL)
-
-# Flags for nvidia gpu
-ifneq (,$(findstring nvidia, $(DEVICE)))
-  CFLAGS += -fsycl-targets=nvptx64-nvidia-cuda-sycldevice
-endif
+CFLAGS := -std=c++11 -Wall -fsycl -D$(PDEVICE) -D$(PKERNEL)
 
 # Debug Flags
 ifeq ($(DEBUG),yes)

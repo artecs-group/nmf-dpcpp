@@ -20,11 +20,12 @@ class CUDASelector : public device_selector {
         int operator()(const device &Device) const override {
             const std::string DriverVersion = Device.get_info<info::device::driver_version>();
 
-            if (Device.is_gpu() && (DriverVersion.find("CUDA") != std::string::npos))
-                //std::cout << " CUDA device found " << std::endl;
+            if (Device.is_gpu() && (DriverVersion.find("CUDA") != std::string::npos)) {
+                std::cout << std::endl << "CUDA GPU found " << std::endl << std::endl;
                 return 1;
+            }
 
-            return -1;
+            return 0;
         }
 };
 
@@ -33,8 +34,13 @@ class NEOGPUDeviceSelector : public device_selector {
     public:
         int operator()(const device &Device) const override {
             const std::string DeviceName = Device.get_info<info::device::name>();
-            //const std::string DeviceVendor = Device.get_info<info::device::vendor>();
-            return Device.is_gpu() && (DeviceName.find("HD Graphics NEO") != std::string::npos);
+
+            if (Device.is_gpu() && (DeviceName.find("HD Graphics NEO") != std::string::npos)) {
+                std::cout << std::endl << "HD Graphics NEO GPU found" << std::endl << std::endl;
+                return 1;
+            }
+
+            return 0;
         }
 };
 

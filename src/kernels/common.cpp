@@ -32,7 +32,7 @@ void V_div_WH(queue &q, buffer<real, 1> &b_V, buffer<real, 1> &b_WH, int N, int 
         auto V = b_V.get_access<sycl_read>();
         auto WH = b_WH.get_access<sycl_read_write>();
 
-        cgh.parallel_for<class div_matrix>(range<2>(N, M), [=](id <2> ij){
+        cgh.parallel_for<class V_div_WH>(range<2>(N, M), [=](id <2> ij){
             int i = ij[0];
             int j = ij[1];
 
@@ -48,7 +48,7 @@ void mult_M_div_vect(queue &q, buffer<real, 1> &b_M, buffer<real, 1> &b_Maux, bu
         auto Maux = b_Maux.get_access<sycl_read>();
         auto acc = b_acc.get_access<sycl_read>();
 
-        cgh.parallel_for<class mul_div_matrix>(range<2>(M, K), [=](id <2> ij){
+        cgh.parallel_for<class mul_M_div_vect>(range<2>(M, K), [=](id <2> ij){
             int i = ij[0];
             int j = ij[1];
 
