@@ -84,27 +84,21 @@ void initWH(buffer<real, 1> &b_W, buffer<real, 1> &b_Htras, int N, int M, int K)
 	fread(&seedi, sizeof(int), 1, fd);
 	fclose(fd);
 	srand(seedi);
-	for (int i = 0; i < N; i++) {
+
+	for (int i = 0; i < N; i++)
 		for (int j = 0; j < K; j++)
 			W[i*K + j] = ((real)(rand()))/RAND_MAX;
-			//W[i][j] = (real)(i);
-		// for (j = K; j < Kpad; j++)
-		// 	W[i*N + j] = 0.0;
-	}
 
-	for (int i = 0; i < M; i++) {
+	for (int i = 0; i < M; i++)
         for (int j = 0; j < K; j++)
 			Htras[i*K + j] = ((real)(rand()))/RAND_MAX;
-			//Htras[i][j] = (real)(i);
-		// for (j = K; j < Kpad; j++)
-		// 	Htras[i*M + j] = 0.0;
-	}
 
 #ifdef DEBUG
 	/* Added to debug */
 	FILE *fIn;
 	real *Wtmp = get_memory2D_in_1D(N, K);
 	int size_W = N*K;
+
 	fIn = fopen("w_bin.bin", "r");
 	fread(Wtmp, sizeof(real), size_W, fIn);
 	fclose(fIn);
@@ -159,6 +153,27 @@ void printMATRIX(real *m, int I, int J) {
 }
 
 
+void print_WH(real *W, real *Htras, int N, int M, int K) {
+	for (int i = 0; i < N; i++){
+		printf("W[%i]: ", i);
+
+		for (int j = 0; j < K; j++)
+			printf("%f ", W[i*K + j]);
+
+		printf("\n");
+	}
+
+	for (int i = 0; i < K; i++){
+		printf("H[%i]: ", i);
+
+        	for (int j = 0; j < M; j++)
+				printf("%f ", Htras[j*K + i]);
+
+		printf("\n");
+	}
+}
+
+
 real *get_V(int N, int M, char* file_name) {
 	real *V = get_memory2D_in_1D(N, M);
 
@@ -193,8 +208,6 @@ real *get_V(int N, int M, char* file_name) {
     for (int i = 0; i < N; i++)
         for (int j = 0; j < M; j++)
             V[i*M + j] = ((real)(rand()))/RAND_MAX;
-
-	fclose(fd);
 #endif
 	return V;
 }
