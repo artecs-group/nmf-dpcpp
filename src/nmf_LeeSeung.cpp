@@ -1,7 +1,12 @@
 #include <stdio.h>
 #include <sys/time.h>
 #include <time.h>
+
+#ifdef BLAS_KERNEL
+#include "./kernels/blas_kernel/blas_kernel.h"
+#else
 #include "./kernels/bare_kernel/bare_kernel.h" //default kernels
+#endif
 
 double gettime() {
 	double final_time;
