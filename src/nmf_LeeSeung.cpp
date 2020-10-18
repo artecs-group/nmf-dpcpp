@@ -1,8 +1,6 @@
 #include <stdio.h>
-#include <malloc.h>
-#include <sys/times.h>
-#include <time.h>
 #include <sys/time.h>
+#include <time.h>
 #include "./kernels/bare_kernel/bare_kernel.h" //default kernels
 
 double gettime() {
@@ -79,7 +77,7 @@ void initWH(buffer<real, 1> &b_W, buffer<real, 1> &b_Htras, int N, int M, int K)
 	int seedi;
 	FILE *fd;
 
-	/* Generated random values between 0.00 - 1.00 */	
+	/* Generated random values between 0.00 - 1.00 */
 	fd = fopen("/dev/urandom", "r");
 	fread(&seedi, sizeof(int), 1, fd);
 	fclose(fd);
@@ -420,8 +418,7 @@ int main(int argc, char *argv[]) {
 		return 1;
 	}
 
-	//h_V                 = get_V(N, M, file_name);
-	h_V                 = get_memory2D_in_1D(N, M);
+	h_V                 = get_V(N, M, file_name);
 	h_W                 = get_memory2D_in_1D(N, K);
 	h_Htras             = get_memory2D_in_1D(M, K);
 	h_WH                = get_memory2D_in_1D(N, M);
@@ -495,7 +492,7 @@ int main(int argc, char *argv[]) {
 		/* Get variance of the method error = |V-W*H| */
 		error = get_Error(b_V, b_W, b_Htras, N, M, K);
 		if (error < error_old) {
-			printf("Better W and H, Error %e Test=%i, Iter=%i\n", error, test, iter*NITER_TEST_CONV);
+			printf("Better W and H, Error %e Test=%i, Iter=%i\n", error, test, iter);
 			matrix_copy2D(b_W, W_best, N, K);
 			matrix_copy2D(b_Htras, Htras_best, M, K);
 			error_old = error;

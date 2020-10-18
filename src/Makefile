@@ -29,7 +29,7 @@ endif
 
 # Standard flags
 CC = clang++
-CFLAGS := -std=c++11 -Wall -fsycl -D$(PDEVICE) -D$(PKERNEL) -D$(REAL)
+CFLAGS := -std=c++11 -Wall -fsycl -D$(PDEVICE) -D$(PKERNEL) -D$(PREAL)
 
 # Debug Flags
 ifeq ($(DEBUG),yes)
