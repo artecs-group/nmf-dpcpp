@@ -27,9 +27,15 @@ ifeq ($(REAL), no)
   PREAL = NON_REAL
 endif
 
-# Standard flags
+# Default compiler and flags
 CC = clang++
 CFLAGS := -std=c++11 -Wall -fsycl -D$(PDEVICE) -D$(PKERNEL) -D$(PREAL)
+
+# Intel DPC++ Compiler
+ifeq ($(CC), dpcpp)
+  CC = dpcpp
+  CFLAGS = -D$(PDEVICE) -D$(PKERNEL) -D$(PREAL)
+endif
 
 # Debug Flags
 ifeq ($(DEBUG),yes)
