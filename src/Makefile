@@ -1,26 +1,26 @@
 OPTIMIZE    = yes
 DEBUG       = no
 DEVICE      = cpu # {cpu, nvidia, igpu}
-KERNEL      = bare # {bare, blas, cublas}
+KERNEL      = bare # {bare, blas}
 REAL        = yes
 
+CPU = CPU_DEVICE
+IGPU = INTEL_IGPU_DEVICE
+NVIDIA = NVIDIA_DEVICE
+
 # Program flags
-PDEVICE = CPU_DEVICE
+PDEVICE = $(CPU)
 PKERNEL = BARE_KERNEL
 PREAL = REAL
 
 ifeq ($(DEVICE), nvidia)
-  PDEVICE = NVIDIA_DEVICE
+  PDEVICE = $(NVIDIA)
 else ifeq ($(DEVICE), igpu)
-  PDEVICE = INTEL_IGPU_DEVICE
+  PDEVICE = $(IGPU)
 endif
 
 ifeq ($(KERNEL), blas)
   PKERNEL = BLAS_KERNEL
-else ifeq ($(KERNEL), cublas)
-  ifeq ($(DEVICE), nvidia)
-    PKERNEL = CUBLAS_KERNEL
-  endif
 endif
 
 ifeq ($(REAL), no)
@@ -34,6 +34,11 @@ CFLAGS := -std=c++11 -Wall -fsycl -D$(PDEVICE) -D$(PKERNEL) -D$(PREAL)
 # Intel DPC++ Compiler
 ifeq ($(CC), dpcpp)
   CC = dpcpp
+
+  # nvidia gpu is not supported in dpcpp
+  ifeq ($(PDEVICE), $(NVIDIA))
+    PDEVICE = $(IGPU)
+  endif
   CFLAGS = -D$(PDEVICE) -D$(PKERNEL) -D$(PREAL)
 endif
 
