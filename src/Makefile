@@ -25,7 +25,7 @@ endif
 
 # Standard flags
 CC = clang++
-CFLAGS := -std=c++11 -Wall -fsycl –L$ONEMKL/lib –lonemkl -D$(PDEVICE) -D$(PKERNEL) -D$(PREAL)
+CFLAGS := -std=c++11 -Wall -fsycl -D$(PDEVICE) -D$(PKERNEL) -D$(PREAL)
 
 # Debug Flags
 ifeq ($(DEBUG),yes)
