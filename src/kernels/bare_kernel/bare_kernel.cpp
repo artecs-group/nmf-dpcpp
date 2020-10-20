@@ -1,7 +1,7 @@
 #include "./bare_kernel.h"
 
 
-void W_mult_H(queue &q, buffer<Real, 1> &b_WH, buffer<Real, 1> &b_W, buffer<Real, 1> &b_Htras, int N, int M, int K) {
+void bare_W_mult_H(queue &q, buffer<Real, 1> &b_WH, buffer<Real, 1> &b_W, buffer<Real, 1> &b_Htras, int N, int M, int K) {
     q.submit([&](handler& cgh) {
         auto WH = b_WH.get_access<sycl_read_write>(cgh);
         auto W = b_W.get_access<sycl_read>(cgh);
@@ -20,7 +20,7 @@ void W_mult_H(queue &q, buffer<Real, 1> &b_WH, buffer<Real, 1> &b_W, buffer<Real
 }
 
 
-void accum(queue &q, buffer<Real, 1> &b_acc, buffer<Real, 1> &b_X, int N, int M) {
+void bare_accum(queue &q, buffer<Real, 1> &b_acc, buffer<Real, 1> &b_X, int N, int M) {
     q.submit([&](handler& cgh) {
         auto acc = b_acc.get_access<sycl_read_write>(cgh);
         auto X = b_X.get_access<sycl_read>(cgh);
@@ -35,7 +35,7 @@ void accum(queue &q, buffer<Real, 1> &b_acc, buffer<Real, 1> &b_X, int N, int M)
 }
 
 
-void Wt_mult_WH(queue &q, buffer<Real, 1> &b_Haux, buffer<Real, 1> &b_W, buffer<Real, 1> &b_WH, int N, int M, int K) {
+void bare_Wt_mult_WH(queue &q, buffer<Real, 1> &b_Haux, buffer<Real, 1> &b_W, buffer<Real, 1> &b_WH, int N, int M, int K) {
     q.submit([&](handler& cgh) {
         auto Haux = b_Haux.get_access<sycl_read_write>(cgh);
         auto W = b_W.get_access<sycl_read>(cgh);
@@ -54,7 +54,7 @@ void Wt_mult_WH(queue &q, buffer<Real, 1> &b_Haux, buffer<Real, 1> &b_W, buffer<
 }
 
 
-void WH_mult_Ht(queue &q, buffer<Real, 1> &b_Waux, buffer<Real, 1> &b_WH, buffer<Real, 1> &b_Htras, int N, int M, int K) {
+void bare_WH_mult_Ht(queue &q, buffer<Real, 1> &b_Waux, buffer<Real, 1> &b_WH, buffer<Real, 1> &b_Htras, int N, int M, int K) {
     q.submit([&](handler& cgh) {
         auto Waux = b_Waux.get_access<sycl_read_write>(cgh);
         auto WH = b_WH.get_access<sycl_read>(cgh);

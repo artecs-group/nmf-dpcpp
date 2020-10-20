@@ -64,13 +64,21 @@ const bool verbose = false;
 const char PAD = 32;
 
 #ifdef REAL
-	#define Real float
-	#define rmax(a,b) ( ( (a) > (b) )? (a) : (b) )
-	#define rsqrt sqrtf
+#define Real float
 #else
-	#define Real double
-	#define rmax fmax
-	#define rsqrt sqrt
+#define Real double
+#endif
+
+#ifdef BLAS_KERNEL
+#define W_mult_H blas_W_mult_H
+#define accum blas_accum
+#define Wt_mult_WH blas_Wt_mult_WH
+#define WH_mult_Ht blas_WH_mult_Ht
+#else
+#define W_mult_H bare_W_mult_H
+#define accum bare_accum
+#define Wt_mult_WH bare_Wt_mult_WH
+#define WH_mult_Ht bare_WH_mult_Ht
 #endif
 
 /* Number of iterations before testing convergence (can be adjusted) */
