@@ -512,7 +512,7 @@ int main(int argc, char *argv[]) {
 	/* Write the solution of the problem */
 	writeSolution(W_best, Htras_best, consensus, N, M, K, nTests);
 
-	printMATRIX(W_best, N, K);
+	// printMATRIX(W_best, N, K);
 
     /* Free memory used */
 	delete_memory1D(h_V);
