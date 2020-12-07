@@ -2,8 +2,9 @@
 #define _BLAS_KERNEL_
 
 #include "../common.h"
-#include "mkl.h"
-#include "mkl_blas_sycl.hpp"
+#include <CL/sycl.hpp>
+#include "oneapi/mkl.hpp"
+//#include "mkl_blas_sycl.hpp" /* To be included in version <beta0.9 */
 
 constexpr oneapi::mkl::transpose transA = oneapi::mkl::transpose::trans;
 constexpr oneapi::mkl::transpose transB = oneapi::mkl::transpose::nontrans;

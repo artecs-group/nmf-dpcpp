@@ -86,7 +86,8 @@ void initWH(buffer<Real, 1> &b_W, buffer<Real, 1> &b_Htras, int N, int M, int K)
 	fd = fopen("/dev/urandom", "r");
 	fread(&seedi, sizeof(int), 1, fd);
 	fclose(fd);
-	srand(seedi);
+	//srand(seedi);
+	srand(0);
 
 	for (int i = 0; i < N; i++)
 		for (int j = 0; j < K; j++)
@@ -418,6 +419,9 @@ int main(int argc, char *argv[]) {
 
 	try {
 		queue q(selector);
+		std::cout << "Running on "
+	        	  << q.get_device().get_info<sycl::info::device::name>()
+	        	  << std::endl;
 	} catch (invalid_parameter_error &E) {
 		std::cout << E.what() << std::endl;
 		return 1;

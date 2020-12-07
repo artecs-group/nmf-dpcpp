@@ -9,7 +9,7 @@ buffer<Real, 1> &b_W, buffer<Real, 1> &b_Htras, int N, int M, int K)
 
 
 void blas_accum(queue &q, buffer<Real, 1> &b_acc, buffer<Real, 1> &b_X, int N, int M) {
-    oneapi::mkl::blas::axpy(q, N, 0.0, b_acc, 1, b_acc, 0);
+    oneapi::mkl::blas::axpy(q, N, -1.0, b_acc, 1, b_acc, 1);
 
     q.submit([&](handler& cgh) {
         auto acc = b_acc.get_access<sycl_read_write>(cgh);
