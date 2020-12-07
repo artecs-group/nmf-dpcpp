@@ -63,24 +63,32 @@ class HostCPUDeviceSelector : public device_selector {
 const bool verbose = false;
 const char PAD = 32;
 
-#ifdef REAL
-	#define real float
-	#define rmax(a,b) ( ( (a) > (b) )? (a) : (b) )
-	#define rsqrt sqrtf
+#ifdef _REAL_
+#define Real float
 #else
-	#define real double
-	#define rmax fmax
-	#define rsqrt sqrt
+#define Real double
+#endif
+
+#ifdef BLAS_KERNEL
+#define W_mult_H blas_W_mult_H
+#define accum blas_accum
+#define Wt_mult_WH blas_Wt_mult_WH
+#define WH_mult_Ht blas_WH_mult_Ht
+#else
+#define W_mult_H bare_W_mult_H
+#define accum bare_accum
+#define Wt_mult_WH bare_Wt_mult_WH
+#define WH_mult_Ht bare_WH_mult_Ht
 #endif
 
 /* Number of iterations before testing convergence (can be adjusted) */
 const int NITER_TEST_CONV = 10;
 
 /* Spacing of floating point numbers. */
-const real eps = 2.2204e-16;
+const Real eps = 2.2204e-16;
 
-void adjust_WH(queue &q, buffer<real, 1> &b_W, buffer<real, 1> &b_Ht, int N, int M, int K);
-void V_div_WH(queue &q, buffer<real, 1> &b_V, buffer<real, 1> &b_WH, int N, int M);
-void mult_M_div_vect(queue &q, buffer<real, 1> &b_M, buffer<real, 1> &b_Maux, buffer<real, 1> &b_acc, int M, int K);
+void adjust_WH(queue &q, buffer<Real, 1> &b_W, buffer<Real, 1> &b_Ht, int N, int M, int K);
+void V_div_WH(queue &q, buffer<Real, 1> &b_V, buffer<Real, 1> &b_WH, int N, int M);
+void mult_M_div_vect(queue &q, buffer<Real, 1> &b_M, buffer<Real, 1> &b_Maux, buffer<Real, 1> &b_acc, int M, int K);
 
 #endif
