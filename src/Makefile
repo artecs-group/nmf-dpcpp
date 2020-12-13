@@ -1,7 +1,7 @@
 OPTIMIZE    = yes
 DEBUG       = no
-DEVICE      = cpu # {cpu, nvidia, igpu}
-KERNEL      = bare # {bare, blas}
+# DEVICE      = cpu # {cpu, nvidia, igpu}
+# KERNEL      = bare # {bare, blas}
 REAL        = yes
 
 CPU = CPU_DEVICE
@@ -9,22 +9,22 @@ IGPU = INTEL_IGPU_DEVICE
 NVIDIA = NVIDIA_DEVICE
 
 # Program flags
-PDEVICE = $(CPU)
-PKERNEL = BARE_KERNEL
+# PDEVICE = $(CPU)
+# PKERNEL = BARE_KERNEL
 PREAL = REAL
 
 MKL_CXXFLAGS = -I$(MKLROOT)/include -DMKL_ILP64
 MKL_LDFLAGS = ${MKLROOT}/lib/intel64/libmkl_sycl.a -L${MKLROOT}/lib/intel64 -lmkl_intel_ilp64 -lmkl_sequential -lmkl_core -lOpenCL -ldl
 
-ifeq ($(DEVICE),nvidia)
-  PDEVICE = NVIDIA_DEVICE
-else ifeq ($(DEVICE), igpu)
-  PDEVICE = $(IGPU)
-endif
+# ifeq ($(DEVICE),nvidia)
+#   PDEVICE = NVIDIA_DEVICE
+# else ifeq ($(DEVICE), igpu)
+#   PDEVICE = $(IGPU)
+# endif
 
-ifeq ($(KERNEL),blas)
-  PKERNEL = BLAS_KERNEL
-endif
+# ifeq ($(KERNEL),blas)
+#   PKERNEL = BLAS_KERNEL
+# endif
 
 ifeq ($(REAL),no)
   PREAL = NON_REAL
@@ -34,9 +34,9 @@ endif
 CC = clang++
 
 ifeq ($(CC),dpcpp)
-  CFLAGS = -D$(PDEVICE) -D$(PKERNEL) -D$(PREAL)
+  CFLAGS = -D$(PREAL) #-D$(PDEVICE) -D$(PKERNEL)
 else
-  CFLAGS := -std=c++11 -Wall -fsycl -D$(PDEVICE) -D$(PKERNEL) -D$(PREAL)
+  CFLAGS := -std=c++11 -Wall -fsycl -D$(PREAL) #-D$(PDEVICE) -D$(PKERNEL)
 endif
 
 # Intel DPC++ Compiler
@@ -47,7 +47,7 @@ ifeq ($(CC), dpcpp)
   ifeq ($(PDEVICE), $(NVIDIA))
     PDEVICE = $(IGPU)
   endif
-  CFLAGS = -D$(PDEVICE) -D$(PKERNEL) -D$(PREAL)
+  CFLAGS = -D$(PREAL) #-D$(PDEVICE) -D$(PKERNEL)
 endif
 
 # Debug Flags
@@ -95,7 +95,7 @@ nmf_LeeSeung.o: ./kernels/bare_kernel/bare_kernel.o \
 
 
 run: nmf
-	./nmf V.bin 500 128 4 100 20
+	./nmf V.bin 100 20
 
 .PHONY: clean
 clean:

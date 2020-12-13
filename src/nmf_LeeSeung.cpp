@@ -2,11 +2,11 @@
 #include <sys/time.h>
 #include <time.h>
 
-#ifdef BLAS_KERNEL
+// #ifdef BLAS_KERNEL
 #include "./kernels/blas_kernel/blas_kernel.h"
-#else
-#include "./kernels/bare_kernel/bare_kernel.h" //default kernels
-#endif
+// #else
+// #include "./kernels/bare_kernel/bare_kernel.h" //default kernels
+// #endif
 
 double gettime() {
 	double final_time;
@@ -335,45 +335,114 @@ void writeSolution(Real *W, Real*Ht, unsigned char *consensus, int N, int M,
 }
 
 
-void nmf(int niter, queue &q, 
+void nmf(int niter, 
+	queue &cpu_q,
+	queue &gpu_q, 
 	buffer<Real, 1> &b_V, buffer<Real, 1> &b_WH, 
 	buffer<Real, 1> &b_W, buffer<Real, 1> &b_Htras, 
     buffer<Real, 1> &b_Waux, buffer<Real, 1> &b_Haux,
-	buffer<Real, 1> &b_accW, buffer<Real, 1> &b_accH,
-	int N, int M, int K)
+	buffer<Real, 1> &b_accW, buffer<Real, 1> &b_accH)
 {
 	/*************************************/
 	/*                                   */
 	/*      Main Iterative Process       */
 	/*                                   */
 	/*************************************/
+	constexpr int split_factor = 2;
+	constexpr int N1 = (N / split_factor);
+	constexpr int N2 = N - N1;
+	constexpr int M1 = (M / split_factor);
+	constexpr int M2 = M - M1;
+	constexpr int K1 = (K / split_factor);
+	constexpr int K2 = K - K1;
+
+	// Aux sub-buffers
+	buffer<Real, 1> b_Htras1 { b_Htras, /*offset*/ range<1>{ 0 }, /*size*/ range<1>{ K*M1 } };
+	buffer<Real, 1> b_Htras2 { b_Htras, /*offset*/ range<1>{ K*M1 }, /*size*/ range<1>{ K*M2 } };
+	buffer<Real, 1> b_Htras3 { b_Htras, /*offset*/ range<1>{ 0 }, /*size*/ range<1>{ M*K1 } };
+	buffer<Real, 1> b_Htras4 { b_Htras, /*offset*/ range<1>{ M*K1 }, /*size*/ range<1>{ M*K2 } };
+	buffer<Real, 1> b_WH1 { b_WH, /*offset*/ range<1>{ 0 }, /*size*/ range<1>{ N*M1 } };
+	buffer<Real, 1> b_WH2 { b_WH, /*offset*/ range<1>{ N*M1 }, /*size*/ range<1>{ N*M2 } };
+	buffer<Real, 1> b_Haux1 { b_Haux, /*offset*/ range<1>{ 0 }, /*size*/ range<1>{ M*K1 } };
+	buffer<Real, 1> b_Haux2 { b_Haux, /*offset*/ range<1>{ M*K1 }, /*size*/ range<1>{ M*K2 } };
+	buffer<Real, 1> b_W1 { b_W, /*offset*/ range<1>{ 0 }, /*size*/ range<1>{ N*K1 } };
+	buffer<Real, 1> b_W2 { b_W, /*offset*/ range<1>{ N*K1 }, /*size*/ range<1>{ N*K2 } };
+	buffer<Real, 1> b_Waux1 { b_Waux, /*offset*/ range<1>{ 0 }, /*size*/ range<1>{ N*K1 } };
+	buffer<Real, 1> b_Waux2 { b_Waux, /*offset*/ range<1>{ N*K1 }, /*size*/ range<1>{ N*K2 } };
+
 	for (int iter = 0; iter < niter; iter++) {
 		/*******************************************/
 		/*** H = H .* (W'*(V./(W*H))) ./ accum_W ***/
 		/*******************************************/
 
-        W_mult_H(q, b_WH, b_W, b_Htras, N, M, K);	/* WH = W*H */
-        V_div_WH(q, b_V, b_WH, N, M);			/* WH = (V./(W*H) */
-        accum(q, b_accW, b_W, N, K); 		/* Shrink into one column */
-        Wt_mult_WH(q, b_Haux, b_W, b_WH, N, M, K);	/* Haux = (W'* {V./(WH)} */
-        mult_M_div_vect(q, b_Htras, b_Haux, b_accW, M, K);/* H = H .* (Haux) ./ accum_W */
+        /* WH = W*H */
+		W_mult_H(cpu_q, b_WH1, b_W, b_Htras1, N, M1, K);
+		W_mult_H(gpu_q, b_WH2, b_W, b_Htras2, N, M2, K);
+		gpu_q.wait();
+
+		/* WH = (V./(W*H) */
+		V_div_WH(cpu_q, b_V, b_WH, N1, M, 0);
+        V_div_WH(gpu_q, b_V, b_WH, N2, M, N1);
+		gpu_q.wait();
+
+		/* Shrink into one column */
+		init_accum(cpu_q, b_accW, N);
+        accum(cpu_q, b_accW, b_W, N, K1, 0);
+		accum(gpu_q, b_accW, b_W, N, K2, K1);
+		gpu_q.wait();
+
+		/* Haux = (W'* {V./(WH)} */
+        Wt_mult_WH(cpu_q, b_Haux1, b_W1, b_WH, N, M, K1);
+		Wt_mult_WH(gpu_q, b_Haux2, b_W2, b_WH, N, M, K2);
+		gpu_q.wait();
+
+		/* H = H .* (Haux) ./ accum_W */
+        mult_M_div_vect(cpu_q, b_Htras, b_Haux, b_accW, M1, K, 0);
+		mult_M_div_vect(gpu_q, b_Htras, b_Haux, b_accW, M2, K, M1);
+		gpu_q.wait();
 
 		/*******************************************/
 		/*** W = W .* ((V./(W*H))*H') ./ accum_H ***/
 		/*******************************************/
-        W_mult_H(q, b_WH, b_W, b_Htras, N, M, K);	/* WH = W*H */
-        V_div_WH(q, b_V, b_WH, N, M );			/* WH = (V./(W*H) */
-        WH_mult_Ht(q, b_Waux, b_WH, b_Htras, N, M, K);/* Waux =  {V./(W*H)} *H' */
-        accum(q, b_accH, b_Htras, M, K);		/* Shrink into one column */
-        mult_M_div_vect(q, b_W, b_Waux, b_accH, N, K);/* W = W .* Waux ./ accum_H */
+
+		/* WH = W*H */
+		W_mult_H(cpu_q, b_WH1, b_W, b_Htras1, N, M1, K);
+		W_mult_H(gpu_q, b_WH2, b_W, b_Htras2, N, M2, K);
+		gpu_q.wait();
+
+		/* WH = (V./(W*H) */
+		V_div_WH(cpu_q, b_V, b_WH, N1, M, 0);
+        V_div_WH(gpu_q, b_V, b_WH, N2, M, N1);
+		gpu_q.wait();
+
+		/* Waux =  {V./(W*H)} *H' */
+        WH_mult_Ht(cpu_q, b_Waux1, b_WH, b_Htras3, N, M, K1);
+		WH_mult_Ht(gpu_q, b_Waux2, b_WH, b_Htras4, N, M, K2);
+		gpu_q.wait();
+
+		/* Shrink into one column */
+		init_accum(cpu_q, b_accH, M);
+        accum(cpu_q, b_accH, b_Htras, M, K1, 0);
+		accum(gpu_q, b_accH, b_Htras, M, K2, K1);
+		gpu_q.wait();
+
+		/* W = W .* Waux ./ accum_H */
+		mult_M_div_vect(cpu_q, b_W, b_Waux, b_accH, N1, K, 0);
+		mult_M_div_vect(gpu_q, b_W, b_Waux, b_accH, N2, K, N1);
+		gpu_q.wait();
     }
+
+	/* Adjust small values to avoid undeflow: h=max(h,eps);w=max(w,eps); */
+	adjust_WH(cpu_q, b_W, b_Htras, N1, M1, K, 0, 0);
+	adjust_WH(gpu_q, b_W, b_Htras, N2, M2, K, N1, M1);
+	gpu_q.wait();
 }
 
 
 int main(int argc, char *argv[]) {
 	int niters;
 
-	queue q;
+	queue cpu_q, gpu_q;
 	const property_list props = property::buffer::use_host_ptr();
 
 	Real *h_V, *h_WH, *h_W, *h_Htras, *h_Haux, *h_Waux, *h_acumm_W, *h_acumm_H;
@@ -393,35 +462,28 @@ int main(int argc, char *argv[]) {
 
     setbuf( stdout, NULL );
 	
-	if (argc != 7) {
-		printf("./exec dataInput.bin N M K nTests stop_threshold (argc=%i %i)\n", argc, atoi(argv[2]));
+	if (argc != 4) {
+		printf("./exec dataInput.bin nTests stop_threshold (argc=%i %i)\n", argc, atoi(argv[2]));
 		return 1;
 	}
 
 	strcpy(file_name, argv[1]);
-	int N              = atoi(argv[2]);
-	int M              = atoi(argv[3]);
-	int K              = atoi(argv[4]);
-	int nTests         = atoi(argv[5]);
-	int stop_threshold = atoi(argv[6]);
+	int nTests         = atoi(argv[2]);
+	int stop_threshold = atoi(argv[3]);
 
     printf("file=%s\nN=%i M=%i K=%i nTests=%i stop_threshold=%i\n", file_name, N, M, K, nTests, stop_threshold);
 
-#if defined(INTEL_IGPU_DEVICE)
-	NEOGPUDeviceSelector selector;
-#elif defined(NVIDIA_DEVICE)
-	CUDASelector selector;
-#elif defined(CPU_DEVICE)	
-	HostCPUDeviceSelector selector;
-#else
-	default_selector selector;
-#endif
-
 	try {
-		queue q(selector);
+		HostCPUDeviceSelector cpu_selector;
+		NEOGPUDeviceSelector gpu_selector;
+
+		queue cpu_q(cpu_selector);
+		queue gpu_q(gpu_selector);
+
 		std::cout << "Running on "
-	        	  << q.get_device().get_info<sycl::info::device::name>()
+	        	  << cpu_q.get_device().get_info<sycl::info::device::name>()
 	        	  << std::endl;
+
 	} catch (invalid_parameter_error &E) {
 		std::cout << E.what() << std::endl;
 		return 1;
@@ -469,12 +531,8 @@ int main(int argc, char *argv[]) {
 			iter++;
 
 			/* Main Proccess of NMF Brunet */
-			nmf(NITER_TEST_CONV, q, b_V, b_WH, b_W, 
-				b_Htras, b_Waux, b_Haux, b_acumm_W, b_acumm_H,
-				N, M, K);
-
-			/* Adjust small values to avoid undeflow: h=max(h,eps);w=max(w,eps); */
-			adjust_WH(q, b_W, b_Htras, N, M, K);
+			nmf(NITER_TEST_CONV, cpu_q, gpu_q, b_V, b_WH, b_W, 
+				b_Htras, b_Waux, b_Haux, b_acumm_W, b_acumm_H);
 
 			/* Test of convergence: construct connectivity matrix */
 			get_classification(b_Htras, classification, M, K);

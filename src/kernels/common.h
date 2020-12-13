@@ -62,6 +62,9 @@ class HostCPUDeviceSelector : public device_selector {
 //#define DEBUG
 const bool verbose = false;
 const char PAD = 32;
+constexpr int N = 500;
+constexpr int M = 128;
+constexpr int K = 4;
 
 #ifdef _REAL_
 #define Real float
@@ -69,17 +72,19 @@ const char PAD = 32;
 #define Real double
 #endif
 
-#ifdef BLAS_KERNEL
+// #ifdef BLAS_KERNEL
 #define W_mult_H blas_W_mult_H
+#define init_accum blas_init_accum
 #define accum blas_accum
 #define Wt_mult_WH blas_Wt_mult_WH
 #define WH_mult_Ht blas_WH_mult_Ht
-#else
-#define W_mult_H bare_W_mult_H
-#define accum bare_accum
-#define Wt_mult_WH bare_Wt_mult_WH
-#define WH_mult_Ht bare_WH_mult_Ht
-#endif
+// #else
+// #define W_mult_H bare_W_mult_H
+// #define init_accum bare_init_accum
+// #define accum bare_accum
+// #define Wt_mult_WH bare_Wt_mult_WH
+// #define WH_mult_Ht bare_WH_mult_Ht
+// #endif
 
 /* Number of iterations before testing convergence (can be adjusted) */
 const int NITER_TEST_CONV = 10;
@@ -87,8 +92,8 @@ const int NITER_TEST_CONV = 10;
 /* Spacing of floating point numbers. */
 const Real eps = 2.2204e-16;
 
-void adjust_WH(queue &q, buffer<Real, 1> &b_W, buffer<Real, 1> &b_Ht, int N, int M, int K);
-void V_div_WH(queue &q, buffer<Real, 1> &b_V, buffer<Real, 1> &b_WH, int N, int M);
-void mult_M_div_vect(queue &q, buffer<Real, 1> &b_M, buffer<Real, 1> &b_Maux, buffer<Real, 1> &b_acc, int M, int K);
+void adjust_WH(queue &q, buffer<Real, 1> &b_W, buffer<Real, 1> &b_Ht, int N, int M, int K, int offsetN, int offsetM);
+void V_div_WH(queue &q, buffer<Real, 1> &b_V, buffer<Real, 1> &b_WH, int N, int M, int offsetN);
+void mult_M_div_vect(queue &q, buffer<Real, 1> &b_M, buffer<Real, 1> &b_Maux, buffer<Real, 1> &b_acc, int M, int K, int offsetM);
 
 #endif

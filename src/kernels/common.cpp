@@ -1,6 +1,6 @@
 #include "./common.h"
 
-void adjust_WH(queue &q, buffer<Real, 1> &b_W, buffer<Real, 1> &b_Ht, int N, int M, int K) {
+void adjust_WH(queue &q, buffer<Real, 1> &b_W, buffer<Real, 1> &b_Ht, int N, int M, int K, int offsetN, int offsetM) {
     q.submit([&](handler& cgh) {
         auto W = b_W.get_access<sycl_read_write>(cgh);
 
@@ -8,8 +8,8 @@ void adjust_WH(queue &q, buffer<Real, 1> &b_W, buffer<Real, 1> &b_Ht, int N, int
             int i = ij[0];
             int j = ij[1];
 
-            if(W[i*K + j] < eps)
-                W[i*K + j] = eps;
+            if(W[(i+offsetN)*K + j] < eps)
+                W[(i+offsetN)*K + j] = eps;
         });
     });
 	
@@ -20,14 +20,14 @@ void adjust_WH(queue &q, buffer<Real, 1> &b_W, buffer<Real, 1> &b_Ht, int N, int
             int i = ij[0];
             int j = ij[1];
 
-            if(Ht[i*K + j] < eps)
-                Ht[i*K + j] = eps;
+            if(Ht[(i+offsetM)*K + j] < eps)
+                Ht[(i+offsetM)*K + j] = eps;
         });
     });	 
 }
 
 
-void V_div_WH(queue &q, buffer<Real, 1> &b_V, buffer<Real, 1> &b_WH, int N, int M) {
+void V_div_WH(queue &q, buffer<Real, 1> &b_V, buffer<Real, 1> &b_WH, int N, int M, int offsetN) {
     q.submit([&](handler& cgh) {
         auto V = b_V.get_access<sycl_read>(cgh);
         auto WH = b_WH.get_access<sycl_read_write>(cgh);
@@ -36,13 +36,13 @@ void V_div_WH(queue &q, buffer<Real, 1> &b_V, buffer<Real, 1> &b_WH, int N, int 
             int i = ij[0];
             int j = ij[1];
 
-            WH[i*M + j] = V[i*M + j] / WH[i*M + j];
+            WH[(i+offsetN)*M + j] = V[(i+offsetN)*M + j] / WH[(i+offsetN)*M + j];
         });
     });
 }
 
 
-void mult_M_div_vect(queue &q, buffer<Real, 1> &b_M, buffer<Real, 1> &b_Maux, buffer<Real, 1> &b_acc, int M, int K) {
+void mult_M_div_vect(queue &q, buffer<Real, 1> &b_M, buffer<Real, 1> &b_Maux, buffer<Real, 1> &b_acc, int M, int K, int offsetM) {
     q.submit([&](handler& cgh) {
         auto Mat = b_M.get_access<sycl_read_write>(cgh);
         auto Maux = b_Maux.get_access<sycl_read>(cgh);
@@ -52,7 +52,7 @@ void mult_M_div_vect(queue &q, buffer<Real, 1> &b_M, buffer<Real, 1> &b_Maux, bu
             int i = ij[0];
             int j = ij[1];
 
-            Mat[i*K + j] = Mat[i*K + j] * Maux[i*K + j] / acc[j];
+            Mat[(i+offsetM)*K + j] = Mat[(i+offsetM)*K + j] * Maux[(i+offsetM)*K + j] / acc[j];
         });
     });
 }
