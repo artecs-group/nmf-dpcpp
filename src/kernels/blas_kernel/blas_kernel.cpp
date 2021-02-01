@@ -14,7 +14,7 @@ void blas_init_accum(queue &q, buffer<Real, 1> &b_acc, int N) {
 
 
 void blas_accum(queue &q, buffer<Real, 1> &b_acc, buffer<Real, 1> &b_X, int N, int M, int offset_M) {
-    oneapi::mkl::blas::axpy(q, N, -1.0, b_acc, 1, b_acc, 1);
+    oneapi::mkl::blas::axpy(q, M, -1.0, b_acc, 1, b_acc, 1);
 
     q.submit([&](handler& cgh) {
         auto acc = b_acc.get_access<sycl_read_write>(cgh);

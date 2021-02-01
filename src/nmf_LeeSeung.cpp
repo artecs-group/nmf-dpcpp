@@ -386,7 +386,7 @@ void nmf(int niter,
 		gpu_q.wait();
 
 		/* Shrink into one column */
-		init_accum(cpu_q, b_accW, N);
+		init_accum(cpu_q, b_accW, K);
         accum(cpu_q, b_accW, b_W, N, K1, 0);
 		accum(gpu_q, b_accW, b_W, N, K2, K1);
 		gpu_q.wait();
@@ -421,7 +421,7 @@ void nmf(int niter,
 		gpu_q.wait();
 
 		/* Shrink into one column */
-		init_accum(cpu_q, b_accH, M);
+		init_accum(cpu_q, b_accH, K);
         accum(cpu_q, b_accH, b_Htras, M, K1, 0);
 		accum(gpu_q, b_accH, b_Htras, M, K2, K1);
 		gpu_q.wait();
