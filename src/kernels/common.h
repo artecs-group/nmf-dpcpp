@@ -58,7 +58,7 @@ class HostCPUDeviceSelector : public device_selector {
         }
 };
 
-#define RANDOM
+//#define RANDOM
 //#define DEBUG
 const bool verbose = false;
 const char PAD = 32;
