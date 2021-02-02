@@ -63,10 +63,10 @@ class HostCPUDeviceSelector : public device_selector {
 const bool verbose = false;
 const char PAD = 32;
 
-#ifdef _REAL_
-#define Real float
+#ifdef _REAL_S_
+#define C_REAL float
 #else
-#define Real double
+#define C_REAL double
 #endif
 
 #ifdef BLAS_KERNEL
@@ -85,10 +85,10 @@ const char PAD = 32;
 const int NITER_TEST_CONV = 10;
 
 /* Spacing of floating point numbers. */
-const Real eps = 2.2204e-16;
+const C_REAL eps = 2.2204e-16;
 
-void adjust_WH(queue &q, buffer<Real, 1> &b_W, buffer<Real, 1> &b_Ht, int N, int M, int K);
-void V_div_WH(queue &q, buffer<Real, 1> &b_V, buffer<Real, 1> &b_WH, int N, int M);
-void mult_M_div_vect(queue &q, buffer<Real, 1> &b_M, buffer<Real, 1> &b_Maux, buffer<Real, 1> &b_acc, int M, int K);
+void adjust_WH(queue &q, buffer<C_REAL, 1> &b_W, buffer<C_REAL, 1> &b_Ht, int N, int M, int K);
+void V_div_WH(queue &q, buffer<C_REAL, 1> &b_V, buffer<C_REAL, 1> &b_WH, int N, int M);
+void mult_M_div_vect(queue &q, buffer<C_REAL, 1> &b_M, buffer<C_REAL, 1> &b_Maux, buffer<C_REAL, 1> &b_acc, int M, int K);
 
 #endif
