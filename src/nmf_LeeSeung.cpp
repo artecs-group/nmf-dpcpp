@@ -341,34 +341,18 @@ void nmf(int niter,
 	buffer<C_REAL, 1> &b_V, buffer<C_REAL, 1> &b_WH, 
 	buffer<C_REAL, 1> &b_W, buffer<C_REAL, 1> &b_Htras, 
     buffer<C_REAL, 1> &b_Waux, buffer<C_REAL, 1> &b_Haux,
-	buffer<C_REAL, 1> &b_accW, buffer<C_REAL, 1> &b_accH)
+	buffer<C_REAL, 1> &b_accW, buffer<C_REAL, 1> &b_accH,
+	buffer<C_REAL, 1> &b_Htras1, buffer<C_REAL, 1> &b_Htras2, buffer<C_REAL, 1> &b_Htras3,
+	buffer<C_REAL, 1> &b_Htras4, buffer<C_REAL, 1> &b_WH1, buffer<C_REAL, 1> &b_WH2,
+	buffer<C_REAL, 1> &b_Haux1, buffer<C_REAL, 1> &b_Haux2, buffer<C_REAL, 1> &b_W1,
+	buffer<C_REAL, 1> &b_W2, buffer<C_REAL, 1> &b_Waux1, buffer<C_REAL, 1> &b_Waux2,
+	int N, int N1, int N2, int M, int M1, int M2, int K, int K1, int K2)
 {
 	/*************************************/
 	/*                                   */
 	/*      Main Iterative Process       */
 	/*                                   */
 	/*************************************/
-	constexpr int split_factor = 2;
-	constexpr int N1 = (N / split_factor);
-	constexpr int N2 = N - N1;
-	constexpr int M1 = (M / split_factor);
-	constexpr int M2 = M - M1;
-	constexpr int K1 = (K / split_factor);
-	constexpr int K2 = K - K1;
-
-	// Aux sub-buffers
-	buffer<C_REAL, 1> b_Htras1 { b_Htras, /*offset*/ range<1>{ 0 }, /*size*/ range<1>{ K*M1 } };
-	buffer<C_REAL, 1> b_Htras2 { b_Htras, /*offset*/ range<1>{ K*M1 }, /*size*/ range<1>{ K*M2 } };
-	buffer<C_REAL, 1> b_Htras3 { b_Htras, /*offset*/ range<1>{ 0 }, /*size*/ range<1>{ M*K1 } };
-	buffer<C_REAL, 1> b_Htras4 { b_Htras, /*offset*/ range<1>{ M*K1 }, /*size*/ range<1>{ M*K2 } };
-	buffer<C_REAL, 1> b_WH1 { b_WH, /*offset*/ range<1>{ 0 }, /*size*/ range<1>{ N*M1 } };
-	buffer<C_REAL, 1> b_WH2 { b_WH, /*offset*/ range<1>{ N*M1 }, /*size*/ range<1>{ N*M2 } };
-	buffer<C_REAL, 1> b_Haux1 { b_Haux, /*offset*/ range<1>{ 0 }, /*size*/ range<1>{ M*K1 } };
-	buffer<C_REAL, 1> b_Haux2 { b_Haux, /*offset*/ range<1>{ M*K1 }, /*size*/ range<1>{ M*K2 } };
-	buffer<C_REAL, 1> b_W1 { b_W, /*offset*/ range<1>{ 0 }, /*size*/ range<1>{ N*K1 } };
-	buffer<C_REAL, 1> b_W2 { b_W, /*offset*/ range<1>{ N*K1 }, /*size*/ range<1>{ N*K2 } };
-	buffer<C_REAL, 1> b_Waux1 { b_Waux, /*offset*/ range<1>{ 0 }, /*size*/ range<1>{ N*K1 } };
-	buffer<C_REAL, 1> b_Waux2 { b_Waux, /*offset*/ range<1>{ N*K1 }, /*size*/ range<1>{ N*K2 } };
 
 	for (int iter = 0; iter < niter; iter++) {
 		/*******************************************/
@@ -513,6 +497,28 @@ int main(int argc, char *argv[]) {
     buffer<C_REAL, 1> b_acumm_W(h_acumm_W, VAR_K, props);
     buffer<C_REAL, 1> b_acumm_H(h_acumm_H, VAR_K, props);
 
+	constexpr int split_factor = 2;
+	constexpr int N1 = (VAR_N / split_factor);
+	constexpr int N2 = VAR_N - N1;
+	constexpr int M1 = (VAR_M / split_factor);
+	constexpr int M2 = VAR_M - M1;
+	constexpr int K1 = (VAR_K / split_factor);
+	constexpr int K2 = VAR_K - K1;
+
+	// Aux sub-buffers
+	buffer<C_REAL, 1> b_Htras1 { b_Htras, /*offset*/ range<1>{ 0 }, /*size*/ range<1>{ VAR_K*M1 } };
+	buffer<C_REAL, 1> b_Htras2 { b_Htras, /*offset*/ range<1>{ VAR_K*M1 }, /*size*/ range<1>{ VAR_K*M2 } };
+	buffer<C_REAL, 1> b_Htras3 { b_Htras, /*offset*/ range<1>{ 0 }, /*size*/ range<1>{ VAR_M*K1 } };
+	buffer<C_REAL, 1> b_Htras4 { b_Htras, /*offset*/ range<1>{ VAR_M*K1 }, /*size*/ range<1>{ VAR_M*K2 } };
+	buffer<C_REAL, 1> b_WH1 { b_WH, /*offset*/ range<1>{ 0 }, /*size*/ range<1>{ VAR_N*M1 } };
+	buffer<C_REAL, 1> b_WH2 { b_WH, /*offset*/ range<1>{ VAR_N*M1 }, /*size*/ range<1>{ VAR_N*M2 } };
+	buffer<C_REAL, 1> b_Haux1 { b_Haux, /*offset*/ range<1>{ 0 }, /*size*/ range<1>{ VAR_M*K1 } };
+	buffer<C_REAL, 1> b_Haux2 { b_Haux, /*offset*/ range<1>{ VAR_M*K1 }, /*size*/ range<1>{ VAR_M*K2 } };
+	buffer<C_REAL, 1> b_W1 { b_W, /*offset*/ range<1>{ 0 }, /*size*/ range<1>{ VAR_N*K1 } };
+	buffer<C_REAL, 1> b_W2 { b_W, /*offset*/ range<1>{ VAR_N*K1 }, /*size*/ range<1>{ VAR_N*K2 } };
+	buffer<C_REAL, 1> b_Waux1 { b_Waux, /*offset*/ range<1>{ 0 }, /*size*/ range<1>{ VAR_N*K1 } };
+	buffer<C_REAL, 1> b_Waux2 { b_Waux, /*offset*/ range<1>{ VAR_N*K1 }, /*size*/ range<1>{ VAR_N*K2 } };
+
 	/**********************************/
 	/******     MAIN PROGRAM     ******/
 	/**********************************/
@@ -532,7 +538,10 @@ int main(int argc, char *argv[]) {
 
 			/* Main Proccess of NMF Brunet */
 			nmf(NITER_TEST_CONV, cpu_q, gpu_q, b_V, b_WH, b_W, 
-				b_Htras, b_Waux, b_Haux, b_acumm_W, b_acumm_H);
+				b_Htras, b_Waux, b_Haux, b_acumm_W, b_acumm_H,
+				b_Htras1, b_Htras2, b_Htras3, b_Htras4, b_WH1,
+				b_WH2, b_Haux1, b_Haux2, b_W1, b_W2, b_Waux1, b_Waux2,
+				VAR_N, N1, N2, VAR_M, M1, M2, VAR_K, K1, K2);
 
 			/* Test of convergence: construct connectivity matrix */
 			get_classification(b_Htras, classification, VAR_M, VAR_K);
