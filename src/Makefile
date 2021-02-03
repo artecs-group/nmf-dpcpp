@@ -2,7 +2,7 @@ OPTIMIZE    = yes
 DEBUG       = no
 # DEVICE      = cpu # {cpu, nvidia, igpu}
 # KERNEL      = bare # {bare, blas}
-REAL        = yes
+REAL        = simple # {simple, double}
 
 CPU = CPU_DEVICE
 IGPU = INTEL_IGPU_DEVICE
@@ -11,7 +11,7 @@ NVIDIA = NVIDIA_DEVICE
 # Program flags
 # PDEVICE = $(CPU)
 # PKERNEL = BARE_KERNEL
-PREAL = REAL
+PREAL = REAL_S
 
 MKL_CXXFLAGS = -I$(MKLROOT)/include -DMKL_ILP64
 MKL_LDFLAGS = ${MKLROOT}/lib/intel64/libmkl_sycl.a -L${MKLROOT}/lib/intel64 -lmkl_intel_ilp64 -lmkl_sequential -lmkl_core -lOpenCL -ldl
@@ -26,8 +26,8 @@ MKL_LDFLAGS = ${MKLROOT}/lib/intel64/libmkl_sycl.a -L${MKLROOT}/lib/intel64 -lmk
 #   PKERNEL = BLAS_KERNEL
 # endif
 
-ifeq ($(REAL),no)
-  PREAL = NON_REAL
+ifeq ($(REAL),double)
+  PREAL = REAL_D
 endif
 
 # Default compiler and flags
