@@ -63,7 +63,7 @@ class HostCPUDeviceSelector : public device_selector {
 const bool verbose = false;
 const char PAD = 32;
 
-#ifdef _REAL_S_
+#ifdef REAL_S
 #define C_REAL float
 #else
 #define C_REAL double
