@@ -66,7 +66,7 @@ void matrix_copy1D_uchar(unsigned char *in, unsigned char *out, int nx) {
 }
 
 
-void matrix_copy2D(buffer<C_REAL, 1> &b_in, C_REAL *out, int nx, int ny) {
+void matrix_copy2D(buffer<C_REAL, 1> b_in, C_REAL *out, int nx, int ny) {
 	auto in = b_in.get_access<sycl_read>();
 	
 	for (int i = 0; i < nx; i++)
@@ -75,7 +75,7 @@ void matrix_copy2D(buffer<C_REAL, 1> &b_in, C_REAL *out, int nx, int ny) {
 }
 
 
-void initWH(buffer<C_REAL, 1> &b_W, buffer<C_REAL, 1> &b_Htras, int N, int M, int K) {	
+void initWH(buffer<C_REAL, 1> b_W, buffer<C_REAL, 1> b_Htras, int N, int M, int K) {	
     auto W = b_W.get_access<sycl_write>();
     auto Htras = b_Htras.get_access<sycl_write>();
 
@@ -252,7 +252,7 @@ void get_consensus(unsigned char *classification, unsigned char *consensus,
 
 
 /* Obtain the classification vector from the Ht matrix */
-void get_classification(buffer<C_REAL, 1> &b_Htras, unsigned char *classification,
+void get_classification(buffer<C_REAL, 1> b_Htras, unsigned char *classification,
     int M, int K)
 {
     auto Htras = b_Htras.get_access<sycl_read>();
@@ -269,8 +269,8 @@ void get_classification(buffer<C_REAL, 1> &b_Htras, unsigned char *classificatio
 }
 
 
-C_REAL get_Error(buffer<C_REAL, 1> &b_V, buffer<C_REAL, 1> &b_W, 
-    buffer<C_REAL, 1> &b_Htras, int N, int M, int K) 
+C_REAL get_Error(buffer<C_REAL, 1> b_V, buffer<C_REAL, 1> b_W, 
+    buffer<C_REAL, 1> b_Htras, int N, int M, int K) 
 {
 	/*
 	* norm( V-WH, 'Frobenius' ) == sqrt( sum( diag( (V-WH)'* (V-WH) ) )
@@ -336,16 +336,16 @@ void writeSolution(C_REAL *W, C_REAL*Ht, unsigned char *consensus, int N, int M,
 
 
 void nmf(int niter, 
-	queue &cpu_q,
-	queue &gpu_q, 
-	buffer<C_REAL, 1> &b_V, buffer<C_REAL, 1> &b_WH, 
-	buffer<C_REAL, 1> &b_W, buffer<C_REAL, 1> &b_Htras, 
-    buffer<C_REAL, 1> &b_Waux, buffer<C_REAL, 1> &b_Haux,
-	buffer<C_REAL, 1> &b_accW, buffer<C_REAL, 1> &b_accH,
-	buffer<C_REAL, 1> &b_Htras1, buffer<C_REAL, 1> &b_Htras2, buffer<C_REAL, 1> &b_Htras3,
-	buffer<C_REAL, 1> &b_Htras4, buffer<C_REAL, 1> &b_WH1, buffer<C_REAL, 1> &b_WH2,
-	buffer<C_REAL, 1> &b_Haux1, buffer<C_REAL, 1> &b_Haux2, buffer<C_REAL, 1> &b_W1,
-	buffer<C_REAL, 1> &b_W2, buffer<C_REAL, 1> &b_Waux1, buffer<C_REAL, 1> &b_Waux2,
+	queue cpu_q,
+	queue gpu_q, 
+	buffer<C_REAL, 1> b_V, buffer<C_REAL, 1> b_WH, 
+	buffer<C_REAL, 1> b_W, buffer<C_REAL, 1> b_Htras, 
+    buffer<C_REAL, 1> b_Waux, buffer<C_REAL, 1> b_Haux,
+	buffer<C_REAL, 1> b_accW, buffer<C_REAL, 1> b_accH,
+	buffer<C_REAL, 1> b_Htras1, buffer<C_REAL, 1> b_Htras2, buffer<C_REAL, 1> b_Htras3,
+	buffer<C_REAL, 1> b_Htras4, buffer<C_REAL, 1> b_WH1, buffer<C_REAL, 1> b_WH2,
+	buffer<C_REAL, 1> b_Haux1, buffer<C_REAL, 1> b_Haux2, buffer<C_REAL, 1> b_W1,
+	buffer<C_REAL, 1> b_W2, buffer<C_REAL, 1> b_Waux1, buffer<C_REAL, 1> b_Waux2,
 	int N, int N1, int N2, int M, int M1, int M2, int K, int K1, int K2)
 {
 	/*************************************/
