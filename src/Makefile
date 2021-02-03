@@ -4,14 +4,18 @@ DEBUG       = no
 # KERNEL      = bare # {bare, blas}
 REAL        = simple # {simple, double}
 
-CPU = CPU_DEVICE
-IGPU = INTEL_IGPU_DEVICE
-NVIDIA = NVIDIA_DEVICE
+#CPU = CPU_DEVICE
+#IGPU = INTEL_IGPU_DEVICE
+#NVIDIA = NVIDIA_DEVICE
 
 # Program flags
 # PDEVICE = $(CPU)
 # PKERNEL = BARE_KERNEL
 PREAL = REAL_S
+VAR_N = 500
+VAR_M = 100
+VAR_K = 4
+
 
 MKL_CXXFLAGS = -I$(MKLROOT)/include -DMKL_ILP64
 MKL_LDFLAGS = ${MKLROOT}/lib/intel64/libmkl_sycl.a -L${MKLROOT}/lib/intel64 -lmkl_intel_ilp64 -lmkl_sequential -lmkl_core -lOpenCL -ldl
@@ -34,21 +38,21 @@ endif
 CC = clang++
 
 ifeq ($(CC),dpcpp)
-  CFLAGS = -D$(PREAL) #-D$(PDEVICE) -D$(PKERNEL)
+  CFLAGS = -D$(PREAL) -DVAR_N=$(VAR_N) -DVAR_M=$(VAR_M) -DVAR_K=$(VAR_K) #-D$(PDEVICE) -D$(PKERNEL)
 else
-  CFLAGS := -std=c++11 -Wall -fsycl -D$(PREAL) #-D$(PDEVICE) -D$(PKERNEL)
+  CFLAGS := -std=c++11 -Wall -fsycl -D$(PREAL) -DVAR_N=$(VAR_N) -DVAR_M=$(VAR_M) -DVAR_K=$(VAR_K) #-D$(PDEVICE) -D$(PKERNEL)
 endif
 
-# Intel DPC++ Compiler
-ifeq ($(CC), dpcpp)
-  CC = dpcpp
+# # Intel DPC++ Compiler
+# ifeq ($(CC), dpcpp)
+#   CC = dpcpp
 
-  # nvidia gpu is not supported in dpcpp
-  ifeq ($(PDEVICE), $(NVIDIA))
-    PDEVICE = $(IGPU)
-  endif
-  CFLAGS = -D$(PREAL) #-D$(PDEVICE) -D$(PKERNEL)
-endif
+#   # # nvidia gpu is not supported in dpcpp
+#   # ifeq ($(PDEVICE), $(NVIDIA))
+#   #   PDEVICE = $(IGPU)
+#   # endif
+#   CFLAGS = -D$(PREAL) #-D$(PDEVICE) -D$(PKERNEL)
+# endif
 
 # Debug Flags
 ifeq ($(DEBUG),yes)

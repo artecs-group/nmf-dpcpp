@@ -471,7 +471,7 @@ int main(int argc, char *argv[]) {
 	int nTests         = atoi(argv[2]);
 	int stop_threshold = atoi(argv[3]);
 
-    printf("file=%s\nN=%i M=%i K=%i nTests=%i stop_threshold=%i\n", file_name, N, M, K, nTests, stop_threshold);
+    printf("file=%s\nN=%i M=%i K=%i nTests=%i stop_threshold=%i\n", file_name, VAR_N, VAR_M, VAR_K, nTests, stop_threshold);
 
 	try {
 		HostCPUDeviceSelector cpu_selector;
@@ -480,38 +480,38 @@ int main(int argc, char *argv[]) {
 		queue cpu_q(cpu_selector);
 		queue gpu_q(gpu_selector);
 
-		std::cout << "Running on "
-	        	  << cpu_q.get_device().get_info<sycl::info::device::name>()
-	        	  << std::endl;
+		// std::cout << "Running on "
+	    //     	  << cpu_q.get_device().get_info<sycl::info::device::name>()
+	    //     	  << std::endl;
 
 	} catch (invalid_parameter_error &E) {
 		std::cout << E.what() << std::endl;
 		return 1;
 	}
 
-	h_V                 = get_V(N, M, file_name);
-	h_W                 = get_memory2D_in_1D(N, K);
-	h_Htras             = get_memory2D_in_1D(M, K);
-	h_WH                = get_memory2D_in_1D(N, M);
-	h_Haux              = get_memory2D_in_1D(M, K);
-	h_Waux              = get_memory2D_in_1D(N, K);
-	h_acumm_W           = get_memory1D(K);
-	h_acumm_H           = get_memory1D(K);
+	h_V                 = get_V(VAR_N, VAR_M, file_name);
+	h_W                 = get_memory2D_in_1D(VAR_N, VAR_K);
+	h_Htras             = get_memory2D_in_1D(VAR_M, VAR_K);
+	h_WH                = get_memory2D_in_1D(VAR_N, VAR_M);
+	h_Haux              = get_memory2D_in_1D(VAR_M, VAR_K);
+	h_Waux              = get_memory2D_in_1D(VAR_N, VAR_K);
+	h_acumm_W           = get_memory1D(VAR_K);
+	h_acumm_H           = get_memory1D(VAR_K);
 
-    W_best              = get_memory2D_in_1D(N, K);
-    Htras_best          = get_memory2D_in_1D(M, K);
-    classification      = get_memory1D_uchar(M);
-	last_classification = get_memory1D_uchar(M);
-	consensus           = get_memory1D_uchar(M*(M-1)/2);
+    W_best              = get_memory2D_in_1D(VAR_N, VAR_K);
+    Htras_best          = get_memory2D_in_1D(VAR_M, VAR_K);
+    classification      = get_memory1D_uchar(VAR_M);
+	last_classification = get_memory1D_uchar(VAR_M);
+	consensus           = get_memory1D_uchar(VAR_M*(VAR_M-1)/2);
 
-    buffer<C_REAL, 1> b_V(h_V, N * M, props);
-    buffer<C_REAL, 1> b_W(h_W, N * K, props);
-    buffer<C_REAL, 1> b_Htras(h_Htras, M * K, props);
-    buffer<C_REAL, 1> b_WH(h_WH, N * M, props);
-    buffer<C_REAL, 1> b_Haux(h_Haux, M * K, props);
-    buffer<C_REAL, 1> b_Waux(h_Waux, N * K, props);
-    buffer<C_REAL, 1> b_acumm_W(h_acumm_W, K, props);
-    buffer<C_REAL, 1> b_acumm_H(h_acumm_H, K, props);
+    buffer<C_REAL, 1> b_V(h_V, VAR_N * VAR_M, props);
+    buffer<C_REAL, 1> b_W(h_W, VAR_N * VAR_K, props);
+    buffer<C_REAL, 1> b_Htras(h_Htras, VAR_M * VAR_K, props);
+    buffer<C_REAL, 1> b_WH(h_WH, VAR_N * VAR_M, props);
+    buffer<C_REAL, 1> b_Haux(h_Haux, VAR_M * VAR_K, props);
+    buffer<C_REAL, 1> b_Waux(h_Waux, VAR_N * VAR_K, props);
+    buffer<C_REAL, 1> b_acumm_W(h_acumm_W, VAR_K, props);
+    buffer<C_REAL, 1> b_acumm_H(h_acumm_H, VAR_K, props);
 
 	/**********************************/
 	/******     MAIN PROGRAM     ******/
@@ -520,7 +520,7 @@ int main(int argc, char *argv[]) {
 
 	for(int test = 0; test < nTests; test++) {
 		/* Init W and H */
-		initWH(b_W, b_Htras, N, M, K);
+		initWH(b_W, b_Htras, VAR_N, VAR_M, VAR_K);
 
 		niters = 2000 / NITER_TEST_CONV;
 
@@ -535,10 +535,10 @@ int main(int argc, char *argv[]) {
 				b_Htras, b_Waux, b_Haux, b_acumm_W, b_acumm_H);
 
 			/* Test of convergence: construct connectivity matrix */
-			get_classification(b_Htras, classification, M, K);
+			get_classification(b_Htras, classification, VAR_M, VAR_K);
 
-			diff = get_difference(classification, last_classification, M);
-			matrix_copy1D_uchar(classification, last_classification, M);
+			diff = get_difference(classification, last_classification, VAR_M);
+			matrix_copy1D_uchar(classification, last_classification, VAR_M);
 
 			if(diff > 0) 	/* If connectivity matrix has changed, then: */
 				inc = 0;  /* restarts count */
@@ -554,14 +554,14 @@ int main(int argc, char *argv[]) {
 		}
 
 		/* Get Matrix consensus */
-		get_consensus(classification, consensus, M);
+		get_consensus(classification, consensus, VAR_M);
 
 		/* Get variance of the method error = |V-W*H| */
-		error = get_Error(b_V, b_W, b_Htras, N, M, K);
+		error = get_Error(b_V, b_W, b_Htras, VAR_N, VAR_M, VAR_K);
 		if (error < error_old) {
 			printf("Better W and H, Error %e Test=%i, Iter=%i\n", error, test, iter);
-			matrix_copy2D(b_W, W_best, N, K);
-			matrix_copy2D(b_Htras, Htras_best, M, K);
+			matrix_copy2D(b_W, W_best, VAR_N, VAR_K);
+			matrix_copy2D(b_Htras, Htras_best, VAR_M, VAR_K);
 			error_old = error;
 		}
 	}
@@ -569,10 +569,10 @@ int main(int argc, char *argv[]) {
 	/**********************************/
 	/**********************************/
 
-	printf("\n\n\n EXEC TIME %f (us).       N=%i M=%i K=%i Tests=%i (%lu)\n", time1-time0, N, M, K, nTests, sizeof(C_REAL));
+	printf("\n\n\n EXEC TIME %f (us).       N=%i M=%i K=%i Tests=%i (%lu)\n", time1-time0, VAR_N, VAR_M, VAR_K, nTests, sizeof(C_REAL));
 
 	/* Write the solution of the problem */
-	writeSolution(W_best, Htras_best, consensus, N, M, K, nTests);
+	writeSolution(W_best, Htras_best, consensus, VAR_N, VAR_M, VAR_K, nTests);
 
 	// printMATRIX(W_best, N, K);
 

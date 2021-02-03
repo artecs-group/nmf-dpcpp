@@ -66,7 +66,7 @@ constexpr int N = 500;
 constexpr int M = 128;
 constexpr int K = 4;
 
-#ifdef _REAL_S_
+#ifdef REAL_S
 #define C_REAL float
 #else
 #define C_REAL double
