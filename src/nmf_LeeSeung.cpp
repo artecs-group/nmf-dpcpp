@@ -303,14 +303,13 @@ void nmf(int niter, queue q, C_REAL *V, C_REAL *WH,
         WH_mult_Ht(q, Waux, WH, Htras, N, M, K);/* Waux =  {V./(W*H)} *H' */
         accum(q, accH, Htras, M, K);		/* Shrink into one column */
         mult_M_div_vect(q, W, Waux, accH, N, K);/* W = W .* Waux ./ accum_H */
+		q.wait_and_throw();
     }
 }
 
 
 int main(int argc, char *argv[]) {
 	int niters;
-
-	queue q;
 
 	C_REAL *V, *WH, *W, *Htras, *Haux, *Waux, *acumm_W, *acumm_H;
 	C_REAL *W_best, *Htras_best;
@@ -344,24 +343,19 @@ int main(int argc, char *argv[]) {
     printf("file=%s\nN=%i M=%i K=%i nTests=%i stop_threshold=%i\n", file_name, N, M, K, nTests, stop_threshold);
 
 #if defined(INTEL_IGPU_DEVICE)
-	NEOGPUDeviceSelector selector;
+	NEOGPUDeviceSelector selector{};
 #elif defined(NVIDIA_DEVICE)
-	CUDASelector selector;
+	CUDASelector selector{};
 #elif defined(CPU_DEVICE)	
-	HostCPUDeviceSelector selector;
+	cpu_selector selector{};
 #else
-	default_selector selector;
+	default_selector selector{};
 #endif
 
-	try {
-		queue q(selector);
-		std::cout << "Running on "
-	        	  << q.get_device().get_info<sycl::info::device::name>()
-	        	  << std::endl;
-	} catch (invalid_parameter_error &E) {
-		std::cout << E.what() << std::endl;
-		return 1;
-	}
+	sycl::queue q{selector};
+	std::cout << "Running on "
+				<< q.get_device().get_info<sycl::info::device::name>()
+				<< std::endl;
 
 	V                 = get_V(N, M, file_name, q);
 	W                 = malloc_shared<C_REAL>(N * K, q);

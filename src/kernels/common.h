@@ -38,20 +38,6 @@ class NEOGPUDeviceSelector : public device_selector {
         }
 };
 
-class HostCPUDeviceSelector : public device_selector {
-    public:
-        int operator()(const device &Device) const override {
-            const std::string DeviceName = Device.get_info<info::device::name>();
-
-            if (Device.is_host()) {
-                std::cout << std::endl << "Running on host CPU" << std::endl << std::endl;
-                return 1;
-            }
-
-            return 0;
-        }
-};
-
 //#define RANDOM
 //#define DEBUG
 const bool verbose = false;

@@ -19,7 +19,7 @@ void adjust_WH(queue q, C_REAL *W, C_REAL *Ht, int N, int M, int K) {
             if(Ht[i*K + j] < eps)
                 Ht[i*K + j] = eps;
         });
-    });	 
+    });
 }
 
 
