@@ -358,13 +358,15 @@ int main(int argc, char *argv[]) {
 				<< std::endl;
 
 	V                 = get_V(N, M, file_name, q);
+	//q.mem_advise(V, N*M, 0); // mark it as read only memory. Still not available
+
 	W                 = malloc_shared<C_REAL>(N * K, q);
 	Htras             = malloc_shared<C_REAL>(M * K, q);
-	WH                = malloc_shared<C_REAL>(N * M, q);
-	Haux              = malloc_shared<C_REAL>(M * K, q);
-	Waux              = malloc_shared<C_REAL>(N * K, q);
-	acumm_W           = malloc_shared<C_REAL>(K, q);
-	acumm_H           = malloc_shared<C_REAL>(K, q);
+	WH                = malloc_device<C_REAL>(N * M, q);
+	Haux              = malloc_device<C_REAL>(M * K, q);
+	Waux              = malloc_device<C_REAL>(N * K, q);
+	acumm_W           = malloc_device<C_REAL>(K, q);
+	acumm_H           = malloc_device<C_REAL>(K, q);
 
     W_best              = malloc_host<C_REAL>(N * K, q);
     Htras_best          = malloc_host<C_REAL>(M * K, q);
