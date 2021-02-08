@@ -10,7 +10,7 @@ void adjust_WH(queue q, C_REAL *W, C_REAL *Ht, int N, int M, int K) {
                 W[i*K + j] = eps;
         });
     });
-	
+
     q.submit([&](handler& cgh) {
         cgh.parallel_for<class check_Ht>(range<2>(M, K), [=](id <2> ij){
             int i = ij[0];
@@ -20,6 +20,7 @@ void adjust_WH(queue q, C_REAL *W, C_REAL *Ht, int N, int M, int K) {
                 Ht[i*K + j] = eps;
         });
     });
+    q.wait();
 }
 
 
@@ -32,6 +33,7 @@ void V_div_WH(queue q, C_REAL *V, C_REAL *WH, int N, int M) {
             WH[i*M + j] = V[i*M + j] / WH[i*M + j];
         });
     });
+    q.wait();
 }
 
 
@@ -44,4 +46,5 @@ void mult_M_div_vect(queue q, C_REAL *Mat, C_REAL *Maux, C_REAL *acc, int M, int
             Mat[i*K + j] = Mat[i*K + j] * Maux[i*K + j] / acc[j];
         });
     });
+    q.wait();
 }

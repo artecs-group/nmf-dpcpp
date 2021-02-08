@@ -54,31 +54,16 @@ void initWH(C_REAL *W, C_REAL *Htras, int N, int M, int K) {
 #ifdef DEBUG
 	/* Added to debug */
 	FILE *fIn;
-	C_REAL *Wtmp = new C_REAL[N*K];
 	int size_W = N*K;
 
 	fIn = fopen("w_bin.bin", "r");
-	fread(Wtmp, sizeof(C_REAL), size_W, fIn);
+	fread(W, sizeof(C_REAL), size_W, fIn);
 	fclose(fIn);
-
-	for (int i = 0; i < N; i++)
-        for (int j = 0; j < K; j++)
-			W[i*K + j] = Wtmp[i*K + j];
-
-	delete [] Wtmp;
 
 	int size_H = M*K;
-	C_REAL *Htmp = new C_REAL[M*K];
 	fIn = fopen("h_bin.bin", "r");
-	fread(Htmp, sizeof(C_REAL), size_H, fIn);
+	fread(Htras, sizeof(C_REAL), size_H, fIn);
 	fclose(fIn);
-
-	for (int i = 0; i < M; i++)
-        for (int j = 0; j < K; j++)
-			Htras[i*K + j] = Htmp[i*K + j];
-
-	delete [] Htmp;
-	
 #endif
 }
 
@@ -137,23 +122,8 @@ C_REAL *get_V(int N, int M, char* file_name, queue &q) {
 
 #ifndef RANDOM
 	FILE *fIn = fopen(file_name, "r");
-	const int size_V = N*M;
-
-	if (sizeof(C_REAL) == sizeof(float)) {
-		fread(V, sizeof(float), size_V, fIn);
-		fclose(fIn);
-	}
-    else {
-		C_REAL *Vaux = new C_REAL[size_V];
-		fread(Vaux, sizeof(float), size_V, fIn);
-		fclose(fIn);
-
-		for (int i = 0; i < N; i++)
-			for (int j = 0; j < M; j++)
-				V[i*M + j] = Vaux[i*M + j];
-
-		delete [] Vaux;
-	}
+	fread(V, sizeof(C_REAL), N*M, fIn);
+	fclose(fIn);
 #else
 	/* Generated random values between 0.00 - 1.00 */
 	FILE *fd;
@@ -303,7 +273,6 @@ void nmf(int niter, queue q, C_REAL *V, C_REAL *WH,
         WH_mult_Ht(q, Waux, WH, Htras, N, M, K);/* Waux =  {V./(W*H)} *H' */
         accum(q, accH, Htras, M, K);		/* Shrink into one column */
         mult_M_div_vect(q, W, Waux, accH, N, K);/* W = W .* Waux ./ accum_H */
-		q.wait_and_throw();
     }
 }
 
@@ -439,7 +408,7 @@ int main(int argc, char *argv[]) {
 	/* Write the solution of the problem */
 	writeSolution(W_best, Htras_best, consensus, N, M, K, nTests);
 
-	// printMATRIX(W_best, N, K);
+	//printMATRIX(W_best, N, K);
 
     /* Free memory used */
 	free(V, q);

@@ -13,6 +13,7 @@ void bare_W_mult_H(queue q, C_REAL *WH, C_REAL *W, C_REAL *Htras, int N, int M, 
                 WH[i*M + j] += W[i*K + k] * Htras[j*K + k];
         });
     });
+    q.wait();
 }
 
 
@@ -25,6 +26,7 @@ void bare_accum(queue q, C_REAL *acc, C_REAL *X, int N, int M) {
                 acc[j] += X[i*M + j];
         });
     });
+    q.wait();
 }
 
 
@@ -40,6 +42,7 @@ void bare_Wt_mult_WH(queue q, C_REAL *Haux, C_REAL *W, C_REAL *WH, int N, int M,
                 Haux[k*K + j] += W[i*K + j] * WH[i*M + k];
         });
     });
+    q.wait();
 }
 
 
@@ -55,4 +58,5 @@ void bare_WH_mult_Ht(queue q, C_REAL *Waux, C_REAL *WH, C_REAL *Htras, int N, in
                 Waux[i*K + j] += WH[i*M + k] * Htras[k*K + j];
         });
     });
+    q.wait();
 }
