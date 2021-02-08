@@ -13,8 +13,7 @@ PDEVICE = $(CPU)
 PKERNEL = BARE_KERNEL
 PREAL = REAL_S
 
-MKL_CXXFLAGS = -I$(MKLROOT)/include -DMKL_ILP64
-MKL_LDFLAGS = ${MKLROOT}/lib/intel64/libmkl_sycl.a -L${MKLROOT}/lib/intel64 -lmkl_intel_ilp64 -lmkl_sequential -lmkl_core -lOpenCL -ldl
+MKL_LDFLAGS = -I${MKLROOT}/include -mkl -fsycl-device-code-split=per_kernel
 
 ifeq ($(DEVICE),nvidia)
   PDEVICE = NVIDIA_DEVICE
@@ -31,7 +30,7 @@ ifeq ($(REAL),double)
 endif
 
 # Default compiler and flags
-CC = clang++
+CC = dpcpp
 
 ifeq ($(CC),dpcpp)
   CFLAGS = -D$(PDEVICE) -D$(PKERNEL) -D$(PREAL)
@@ -41,8 +40,6 @@ endif
 
 # Intel DPC++ Compiler
 ifeq ($(CC), dpcpp)
-  CC = dpcpp
-
   # nvidia gpu is not supported in dpcpp
   ifeq ($(PDEVICE), $(NVIDIA))
     PDEVICE = $(IGPU)
@@ -60,7 +57,6 @@ ifeq ($(OPTIMIZE),yes)
   CFLAGS += -O3
 endif
 
-
 nmf: nmf_LeeSeung.o \
   ./kernels/bare_kernel/bare_kernel.o \
   ./kernels/blas_kernel/blas_kernel.o \
@@ -75,27 +71,27 @@ nmf_LeeSeung.o: ./kernels/bare_kernel/bare_kernel.o \
   ./kernels/blas_kernel/blas_kernel.o \
   ./kernels/common.o \
   nmf_LeeSeung.cpp
-	$(CC) $(CFLAGS) nmf_LeeSeung.cpp -c -o nmf_LeeSeung.o
+	$(CC) $(CFLAGS) nmf_LeeSeung.cpp -c -o nmf_LeeSeung.o $(MKL_LDFLAGS)
 
 ./kernels/blas_kernel/blas_kernel.o: ./kernels/blas_kernel/blas_kernel.cpp \
   ./kernels/blas_kernel/blas_kernel.h \
   ./kernels/common.o
 	$(CC) $(CFLAGS) ./kernels/blas_kernel/blas_kernel.cpp -c \
-    -o ./kernels/blas_kernel/blas_kernel.o
+    -o ./kernels/blas_kernel/blas_kernel.o $(MKL_LDFLAGS)
 
 ./kernels/bare_kernel/bare_kernel.o: ./kernels/bare_kernel/bare_kernel.cpp \
   ./kernels/bare_kernel/bare_kernel.h \
   ./kernels/common.o
 	$(CC) $(CFLAGS) ./kernels/bare_kernel/bare_kernel.cpp -c \
-    -o ./kernels/bare_kernel/bare_kernel.o
+    -o ./kernels/bare_kernel/bare_kernel.o $(MKL_LDFLAGS)
 
 ./kernels/common.o: ./kernels/common.cpp ./kernels/common.h
 	$(CC) $(CFLAGS) ./kernels/common.cpp -c \
-    -o ./kernels/common.o
+    -o ./kernels/common.o $(MKL_LDFLAGS)
 
 
 run: nmf
-	./nmf V.bin 500 128 4 100 20
+	./nmf V.bin 2000 62 4 100 20
 
 .PHONY: clean
 clean:
