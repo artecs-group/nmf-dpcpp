@@ -1,6 +1,6 @@
 #include "./common.h"
 
-void adjust_WH(queue &q, buffer<Real, 1> &b_W, buffer<Real, 1> &b_Ht, int N, int M, int K, int offsetN, int offsetM) {
+void adjust_WH(queue q, buffer<C_REAL, 1> b_W, buffer<C_REAL, 1> b_Ht, int N, int M, int K, int offsetN, int offsetM) {
     q.submit([&](handler& cgh) {
         auto W = b_W.get_access<sycl_read_write>(cgh);
 
@@ -27,7 +27,7 @@ void adjust_WH(queue &q, buffer<Real, 1> &b_W, buffer<Real, 1> &b_Ht, int N, int
 }
 
 
-void V_div_WH(queue &q, buffer<Real, 1> &b_V, buffer<Real, 1> &b_WH, int N, int M, int offsetN) {
+void V_div_WH(queue q, buffer<C_REAL, 1> b_V, buffer<C_REAL, 1> b_WH, int N, int M, int offsetN) {
     q.submit([&](handler& cgh) {
         auto V = b_V.get_access<sycl_read>(cgh);
         auto WH = b_WH.get_access<sycl_read_write>(cgh);
@@ -42,7 +42,7 @@ void V_div_WH(queue &q, buffer<Real, 1> &b_V, buffer<Real, 1> &b_WH, int N, int 
 }
 
 
-void mult_M_div_vect(queue &q, buffer<Real, 1> &b_M, buffer<Real, 1> &b_Maux, buffer<Real, 1> &b_acc, int M, int K, int offsetM) {
+void mult_M_div_vect(queue q, buffer<C_REAL, 1> b_M, buffer<C_REAL, 1> b_Maux, buffer<C_REAL, 1> b_acc, int M, int K, int offsetM) {
     q.submit([&](handler& cgh) {
         auto Mat = b_M.get_access<sycl_read_write>(cgh);
         auto Maux = b_Maux.get_access<sycl_read>(cgh);
