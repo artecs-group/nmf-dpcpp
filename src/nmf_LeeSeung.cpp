@@ -379,27 +379,32 @@ void nmf(int niter,
 		W_mult_H(cpu_q, b_WH1, b_W, b_Htras1, N, M1, K);
 		W_mult_H(gpu_q, b_WH2, b_W, b_Htras2, N, M2, K);
 		gpu_q.wait();
+		cpu_q.wait();
 
 		/* WH = (V./(W*H) */
 		V_div_WH(cpu_q, b_V, b_WH, N1, M, 0);
         V_div_WH(gpu_q, b_V, b_WH, N2, M, N1);
 		gpu_q.wait();
+		cpu_q.wait();
 
 		/* Shrink into one column */
 		init_accum(cpu_q, b_accW, K);
         accum(cpu_q, b_accW, b_W, N, K1, 0);
 		accum(gpu_q, b_accW, b_W, N, K2, K1);
 		gpu_q.wait();
+		cpu_q.wait();
 
 		/* Haux = (W'* {V./(WH)} */
         Wt_mult_WH(cpu_q, b_Haux1, b_W1, b_WH, N, M, K1);
 		Wt_mult_WH(gpu_q, b_Haux2, b_W2, b_WH, N, M, K2);
 		gpu_q.wait();
+		cpu_q.wait();
 
 		/* H = H .* (Haux) ./ accum_W */
         mult_M_div_vect(cpu_q, b_Htras, b_Haux, b_accW, M1, K, 0);
 		mult_M_div_vect(gpu_q, b_Htras, b_Haux, b_accW, M2, K, M1);
 		gpu_q.wait();
+		cpu_q.wait();
 
 		/*******************************************/
 		/*** W = W .* ((V./(W*H))*H') ./ accum_H ***/
@@ -409,33 +414,39 @@ void nmf(int niter,
 		W_mult_H(cpu_q, b_WH1, b_W, b_Htras1, N, M1, K);
 		W_mult_H(gpu_q, b_WH2, b_W, b_Htras2, N, M2, K);
 		gpu_q.wait();
+		cpu_q.wait();
 
 		/* WH = (V./(W*H) */
 		V_div_WH(cpu_q, b_V, b_WH, N1, M, 0);
         V_div_WH(gpu_q, b_V, b_WH, N2, M, N1);
 		gpu_q.wait();
+		cpu_q.wait();
 
 		/* Waux =  {V./(W*H)} *H' */
         WH_mult_Ht(cpu_q, b_Waux1, b_WH, b_Htras3, N, M, K1);
 		WH_mult_Ht(gpu_q, b_Waux2, b_WH, b_Htras4, N, M, K2);
 		gpu_q.wait();
+		cpu_q.wait();
 
 		/* Shrink into one column */
 		init_accum(cpu_q, b_accH, K);
         accum(cpu_q, b_accH, b_Htras, M, K1, 0);
 		accum(gpu_q, b_accH, b_Htras, M, K2, K1);
 		gpu_q.wait();
+		cpu_q.wait();
 
 		/* W = W .* Waux ./ accum_H */
 		mult_M_div_vect(cpu_q, b_W, b_Waux, b_accH, N1, K, 0);
 		mult_M_div_vect(gpu_q, b_W, b_Waux, b_accH, N2, K, N1);
 		gpu_q.wait();
+		cpu_q.wait();
     }
 
 	/* Adjust small values to avoid undeflow: h=max(h,eps);w=max(w,eps); */
 	adjust_WH(cpu_q, b_W, b_Htras, N1, M1, K, 0, 0);
 	adjust_WH(gpu_q, b_W, b_Htras, N2, M2, K, N1, M1);
 	gpu_q.wait();
+	cpu_q.wait();
 }
 
 
@@ -474,11 +485,11 @@ int main(int argc, char *argv[]) {
     printf("file=%s\nN=%i M=%i K=%i nTests=%i stop_threshold=%i\n", file_name, N, M, K, nTests, stop_threshold);
 
 	try {
-		HostCPUDeviceSelector cpu_selector;
-		NEOGPUDeviceSelector gpu_selector;
+		cpu_selector cpu_sel{};
+		NEOGPUDeviceSelector gpu_sel{};
 
-		queue cpu_q(cpu_selector);
-		queue gpu_q(gpu_selector);
+		sycl::queue cpu_q{cpu_sel};
+		sycl::queue gpu_q{gpu_sel};
 
 		std::cout << "Running on "
 	        	  << cpu_q.get_device().get_info<sycl::info::device::name>()
@@ -570,7 +581,8 @@ int main(int argc, char *argv[]) {
 	/**********************************/
 
 	printf("\n\n\n EXEC TIME %f (us).       N=%i M=%i K=%i Tests=%i (%lu)\n", time1-time0, N, M, K, nTests, sizeof(Real));
-
+	printf("Final error %e \n", error);
+	
 	/* Write the solution of the problem */
 	writeSolution(W_best, Htras_best, consensus, N, M, K, nTests);
 
