@@ -44,16 +44,13 @@ class NEOGPUDeviceSelector : public device_selector {
         }
 };
 
-#define RANDOM
-//#define DEBUG
+//#define RANDOM
+#define DEBUG
 const bool verbose = false;
 const char PAD = 32;
-constexpr int N = 500;
-constexpr int M = 128;
-constexpr int K = 4;
 
 #ifdef REAL_S
-#define Real float
+#define C_REAL float
 #else
 #define C_REAL double
 #endif

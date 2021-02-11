@@ -475,9 +475,11 @@ int main(int argc, char *argv[]) {
 		sycl::queue cpu_q{cpu_sel};
 		sycl::queue gpu_q{gpu_sel};
 
-		// std::cout << "Running on "
-	    //     	  << cpu_q.get_device().get_info<sycl::info::device::name>()
-	    //     	  << std::endl;
+		std::cout << "Running on "
+	        	  << cpu_q.get_device().get_info<sycl::info::device::name>()
+	        	  << std::endl
+				  << gpu_q.get_device().get_info<sycl::info::device::name>()
+	        	  << std::endl;
 
 	} catch (invalid_parameter_error &E) {
 		std::cout << E.what() << std::endl;
@@ -589,13 +591,13 @@ int main(int argc, char *argv[]) {
 	/**********************************/
 	/**********************************/
 
-	printf("\n\n\n EXEC TIME %f (us).       N=%i M=%i K=%i Tests=%i (%lu)\n", time1-time0, N, M, K, nTests, sizeof(Real));
+	printf("\n\n\n EXEC TIME %f (us).       N=%i M=%i K=%i Tests=%i (%lu)\n", time1-time0, VAR_N, VAR_M, VAR_K, nTests, sizeof(C_REAL));
 	printf("Final error %e \n", error);
 	
 	/* Write the solution of the problem */
 	writeSolution(W_best, Htras_best, consensus, VAR_N, VAR_M, VAR_K, nTests);
 
-	// printMATRIX(W_best, N, K);
+	printMATRIX(W_best, VAR_N, VAR_K);
 
     /* Free memory used */
 	delete_memory1D(h_V);
