@@ -8,12 +8,7 @@ buffer<C_REAL, 1> b_W, buffer<C_REAL, 1> b_Htras, int N, int M, int K)
 }
 
 
-void blas_init_accum(queue q, buffer<C_REAL, 1> b_acc, int N) {
-    oneapi::mkl::blas::axpy(q, N, -1.0, b_acc, 1, b_acc, 1);
-}
-
-
-void blas_accum(queue q, buffer<C_REAL, 1> b_acc, buffer<C_REAL, 1> b_X, int N, int M, int offset_M) {
+void blas_accum(queue q, buffer<C_REAL, 1> b_acc, buffer<C_REAL, 1> b_X, int N, int M) {
     oneapi::mkl::blas::axpy(q, M, -1.0, b_acc, 1, b_acc, 1);
 
     q.submit([&](handler& cgh) {
@@ -22,7 +17,7 @@ void blas_accum(queue q, buffer<C_REAL, 1> b_acc, buffer<C_REAL, 1> b_X, int N, 
 
         cgh.parallel_for<class accum_add_matrix>(range<1>(M), [=](id <1> j){
             for(int i = 0; i < N; i++)
-                acc[j+offset_M] += X[i*M + j+offset_M];
+                acc[j] += X[i*M + j];
         });
     });
 }
