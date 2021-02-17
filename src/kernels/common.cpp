@@ -26,11 +26,11 @@ void adjust_WH(queue q, C_REAL *W, C_REAL *Ht, int N, int M, int K) {
 
 void V_div_WH(queue q, C_REAL *V, C_REAL *WH, int N, int M) {
     q.submit([&](handler& cgh) {
-        cgh.parallel_for<class V_div_WH>(range<2>(N, M), [=](id <2> ij){
+        cgh.parallel_for<class V_div_WH>(range<1>(N), [=](id <1> ij){
             int i = ij[0];
-            int j = ij[1];
 
-            WH[i*M + j] = V[i*M + j] / WH[i*M + j];
+            for(int j = 0; j < M; j++)
+                WH[i*M + j] = V[i*M + j] / WH[i*M + j];
         });
     });
     q.wait();
@@ -39,11 +39,11 @@ void V_div_WH(queue q, C_REAL *V, C_REAL *WH, int N, int M) {
 
 void mult_M_div_vect(queue q, C_REAL *Mat, C_REAL *Maux, C_REAL *acc, int M, int K) {
     q.submit([&](handler& cgh) {
-        cgh.parallel_for<class mul_M_div_vect>(range<2>(M, K), [=](id <2> ij){
+        cgh.parallel_for<class mul_M_div_vect>(range<1>(M), [=](id <1> ij){
             int i = ij[0];
-            int j = ij[1];
 
-            Mat[i*K + j] = Mat[i*K + j] * Maux[i*K + j] / acc[j];
+            for(int j = 0; j < K; j++)
+                Mat[i*K + j] = Mat[i*K + j] * Maux[i*K + j] / acc[j];
         });
     });
     q.wait();
