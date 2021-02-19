@@ -33,14 +33,14 @@ void matrix_copy2D(C_REAL *in, C_REAL *out, int nx, int ny) {
 
 
 void initWH(C_REAL *W, C_REAL *Htras, int N, int M, int K) {	
-	int seedi;
-	FILE *fd;
+	// int seedi;
+	// FILE *fd;
 
-	/* Generated random values between 0.00 - 1.00 */
-	fd = fopen("/dev/urandom", "r");
-	fread(&seedi, sizeof(int), 1, fd);
-	fclose(fd);
-	//srand(seedi);
+	// /* Generated random values between 0.00 - 1.00 */
+	// fd = fopen("/dev/urandom", "r");
+	// fread(&seedi, sizeof(int), 1, fd);
+	// fclose(fd);
+	// srand(seedi);
 	srand(0);
 
 	for (int i = 0; i < N; i++)
@@ -126,12 +126,12 @@ C_REAL *get_V(int N, int M, char* file_name, queue &q) {
 	fclose(fIn);
 #else
 	/* Generated random values between 0.00 - 1.00 */
-	FILE *fd;
-	int seedi;
-    fd = fopen("/dev/urandom", "r");
-    fread( &seedi, sizeof(int), 1, fd);
-    fclose (fd);
-    srand( seedi );
+	// FILE *fd;
+	// int seedi;
+    // fd = fopen("/dev/urandom", "r");
+    // fread( &seedi, sizeof(int), 1, fd);
+    // fclose (fd);
+    srand( 0 );
 
     for (int i = 0; i < N; i++)
         for (int j = 0; j < M; j++)
@@ -404,6 +404,7 @@ int main(int argc, char *argv[]) {
 	/**********************************/
 
 	printf("\n\n\n EXEC TIME %f (us).       N=%i M=%i K=%i Tests=%i (%lu)\n", time1-time0, N, M, K, nTests, sizeof(C_REAL));
+	printf("Final error %e \n", error);
 
 	/* Write the solution of the problem */
 	writeSolution(W_best, Htras_best, consensus, N, M, K, nTests);
