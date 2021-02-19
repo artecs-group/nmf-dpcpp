@@ -2,7 +2,7 @@
 Non-negative Matrix Factorization algorithm implemented in DPC++
 
 ## Requirements
-To compile and launch the code you need to install [oneAPI base Toolkit](https://software.intel.com/content/www/us/en/develop/tools/oneapi.html)
+To compile and launch the code you need to install [oneAPI base Toolkit](https://software.intel.com/content/www/us/en/develop/tools/oneapi.html).
 
 ## How to compile it?
 To compile the code you can simply do it with `make` command. However, the Makefile offers the following compilation options:
