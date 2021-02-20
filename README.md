@@ -26,3 +26,13 @@ Once you copile it, you will get the nmf executable. This binary takes the follo
 An example to run it could be:
 
 `./nmf V.bin 1000 500 4 1 10`
+
+## Publications
+
+* Igual, Francisco D., et al. "Non-negative matrix factorization on low-power architectures and accelerators: A comparative study." Computers & Electrical Engineering 46 (2015): 139-156.
+
+    * [Available here](https://www.sciencedirect.com/science/article/abs/pii/S0045790615001287)
+
+## Acknowledgements
+
+This work has been supported by the EU (FEDER) and the Spanish MINECO and CM under grants S2018/TCS-4423 and RTI2018-093684-B-I00.
