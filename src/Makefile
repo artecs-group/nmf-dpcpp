@@ -13,7 +13,7 @@ PDEVICE = $(CPU)
 PKERNEL = BARE_KERNEL
 PREAL = REAL_S
 
-MKL_LDFLAGS = -I${MKLROOT}/include -mkl -fsycl-device-code-split=per_kernel
+MKL_LDFLAGS = -I${MKLROOT}/include -qmkl -fsycl-device-code-split=per_kernel
 
 ifeq ($(DEVICE),nvidia)
   PDEVICE = NVIDIA_DEVICE
