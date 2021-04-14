@@ -7,7 +7,7 @@ VAR_N = 500
 VAR_M = 100
 VAR_K = 4
 
-MKL_LDFLAGS = -I${MKLROOT}/include -mkl -fsycl-device-code-split=per_kernel
+MKL_LDFLAGS = -I${MKLROOT}/include -qmkl -fsycl-device-code-split=per_kernel
 
 ifeq ($(REAL),double)
   PREAL = REAL_D
@@ -67,7 +67,7 @@ nmf_LeeSeung.o: ./kernels/bare_kernel/bare_kernel.o \
 
 
 run: nmf
-	./nmf V.bin 100 20
+	./nmf V.bin 1 20
 
 .PHONY: clean
 clean:
