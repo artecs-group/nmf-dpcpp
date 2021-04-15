@@ -33,7 +33,7 @@ endif
 CC = dpcpp
 
 ifeq ($(CC),dpcpp)
-  CFLAGS = -D$(PDEVICE) -D$(PKERNEL) -D$(PREAL) -fiopenmp -fopenmp-targets=spir64
+  CFLAGS = -D$(PDEVICE) -D$(PKERNEL) -D$(PREAL)
 else
   CFLAGS := -std=c++11 -Wall -fsycl -D$(PDEVICE) -D$(PKERNEL) -D$(PREAL)
 endif
@@ -44,7 +44,7 @@ ifeq ($(CC), dpcpp)
   ifeq ($(PDEVICE), $(NVIDIA))
     PDEVICE = $(IGPU)
   endif
-  CFLAGS = -D$(PDEVICE) -D$(PKERNEL) -D$(PREAL) -fiopenmp -fopenmp-targets=spir64
+  CFLAGS = -D$(PDEVICE) -D$(PKERNEL) -D$(PREAL)
 endif
 
 # Debug Flags
@@ -91,7 +91,7 @@ nmf_LeeSeung.o: ./kernels/bare_kernel/bare_kernel.o \
 
 
 run: nmf
-	./nmf V.bin 2000 62 4 1 20
+	./nmf V.bin 2000 62 4 100 20
 
 .PHONY: clean
 clean:
