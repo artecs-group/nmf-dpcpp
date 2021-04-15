@@ -1,6 +1,8 @@
 #ifndef _COMMON_
 #define _COMMON_
 
+#include <sys/time.h>
+#include <time.h>
 #include <stdlib.h>
 #include <math.h>
 #include <string.h>

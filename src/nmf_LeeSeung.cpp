@@ -1,12 +1,4 @@
-#include <stdio.h>
-#include <sys/time.h>
-#include <time.h>
-
-#ifdef BLAS_KERNEL
-#include "./kernels/blas_kernel/blas_kernel.h"
-#else
-#include "./kernels/bare_kernel/bare_kernel.h" //default kernels
-#endif
+#include "common.h"
 
 double gettime() {
 	double final_time;
@@ -33,14 +25,6 @@ void matrix_copy2D(C_REAL *in, C_REAL *out, int nx, int ny) {
 
 
 void initWH(C_REAL *W, C_REAL *Htras, int N, int M, int K) {	
-	// int seedi;
-	// FILE *fd;
-
-	// /* Generated random values between 0.00 - 1.00 */
-	// fd = fopen("/dev/urandom", "r");
-	// fread(&seedi, sizeof(int), 1, fd);
-	// fclose(fd);
-	// srand(seedi);
 	srand(0);
 
 	for (int i = 0; i < N; i++)
@@ -125,12 +109,6 @@ C_REAL *get_V(int N, int M, char* file_name, queue &q) {
 	fread(V, sizeof(C_REAL), N*M, fIn);
 	fclose(fIn);
 #else
-	/* Generated random values between 0.00 - 1.00 */
-	// FILE *fd;
-	// int seedi;
-    // fd = fopen("/dev/urandom", "r");
-    // fread( &seedi, sizeof(int), 1, fd);
-    // fclose (fd);
     srand( 0 );
 
     for (int i = 0; i < N; i++)
@@ -249,27 +227,23 @@ void nmf(int niter, queue q, C_REAL *V, C_REAL *WH,
 	C_REAL *W, C_REAL *Htras, C_REAL *Waux, C_REAL *Haux,
 	C_REAL *accW, C_REAL *accH, int N, int M, int K)
 {
-	int iter;
-	
-	int i, j, k;
-
-	C_REAL diff, tot_diff;
-	C_REAL Vn;
-
-
 	/*************************************/
 	/*                                   */
 	/*      Main Iterative Process       */
 	/*                                   */
 	/*************************************/
 	
-	for (iter=0; iter<niter; iter++)
+	for (int iter=0; iter<niter; iter++)
 	{
 	
 		/*******************************************/
 		/*** H = H .* (W'*(V./(W*H))) ./ accum_W ***/
 		/*******************************************/
+#if defined(INTEL_IGPU_DEVICE)
 	
+#elif defined(CPU_DEVICE)
+
+#endif
 		/* WH = W*H */
 		cblas_sgemm(CblasRowMajor, CblasTrans, CblasNoTrans, 
 			N,				/* [m] */ 
@@ -282,42 +256,41 @@ void nmf(int niter, queue q, C_REAL *V, C_REAL *WH,
 			WH, M			/* C[m][n], num columnas (ldc) */
 		);
 
-		for (i=0; i<N; i++){
-			for (j=0; j<M; j++)
+		for (int i=0; i<N; i++){
+			for (int j=0; j<M; j++)
 			{
 				WH[i][j] = V[i][j]/WH[i][j]; /* V./(W*H) */
 			}
 		}
 
 		/* Reducir a una columna */
-		cblas_saxpy(W, -1.0, acumm_W, 1, acumm_W, 1);
+		cblas_saxpyi(K, -1.0, acumm_W, 1, acumm_W);
 
-		for (i=1;i<N; i++)
-			for (j=0; j<K; j++)
+		for (int i=1;i<N; i++)
+			for (int j=0; j<K; j++)
 				acumm_W[j] += W[i][j];
 
-		cblas_rgemm( CblasColMajor, CblasNoTrans, CblasTrans,
+		cblas_rgemm(CblasRowMajor, CblasNoTrans, CblasTrans,
 			K,				/* [m] */
 			M,				/* [n] */
 			N,				/* [k] */
 			1,				/* alfa */
-			&W[0][0], K,			/* A[m][k], num columnas (lda) */
-			&WH[0][0], M,			/* B[k][n], num columnas (ldb) */
+			W, K,			/* A[m][k], num columnas (lda) */
+			WH, M,			/* B[k][n], num columnas (ldb) */
 			0,                      	/* beta */
-			&Haux[0][0], K			/* C[m][n], num columnas (ldc) */
+			Haux, K			/* C[m][n], num columnas (ldc) */
 		);
 
-		for (j=0; j<M; j++){
-			for (i=0; i<K; i++)
+		for (int j=0; j<M; j++){
+			for (int i=0; i<K; i++)
 				Htras[j][i] = Htras[j][i]*Haux[j][i]/acumm_W[i]; /* H = H .* (Haux) ./ accum_W */
 		}
 
 		/* Reducir a una columna */
-		for (j=0; j<K; j++)
-			acumm_H[j]  = Htras[0][j];
+		cblas_saxpyi(K, -1.0, acumm_H, 1, acumm_H);
 
-		for (i=1;i<M; i++)
-			for (j=0; j<K; j++)
+		for (int i=1;i<M; i++)
+			for (int j=0; j<K; j++)
 			acumm_H[j] += Htras[i][j];
 
 		/*******************************************/
@@ -327,39 +300,40 @@ void nmf(int niter, queue q, C_REAL *V, C_REAL *WH,
 
 		/* WH = W*H */
 		/* V./(W*H) */
-		cblas_rgemm( CblasRowMajor, CblasNoTrans, CblasTrans, 
-			N,				/* [m] */ 
-			M, 				/* [n] */
+		cblas_rgemm( CblasRowMajor, CblasTrans, CblasNoTrans, 
+			M,				/* [m] */ 
+			N, 				/* [n] */
 			K,				/* [k] */
 			1, 				/* alfa */ 
-			&W[0][0], K,		 	/* A[m][k], num columnas (lda) */
-			&Htras[0][0], K,		/* B[k][n], num columnas (ldb) */
+			Htras, K,		 	/* A[m][k], num columnas (lda) */
+			W, K,		/* B[k][n], num columnas (ldb) */
 			0,				/* beta */ 
-			&WH[0][0], M			/* C[m][n], num columnas (ldc) */
+			WH, M			/* C[m][n], num columnas (ldc) */
 		);
 
-		for (i=0; i<N; i++)
-			for (j=0; j<M; j++)
+		for (int i=0; i<N; i++) {
+			for (int j=0; j<M; j++)
 			{
 				WH[i][j] = V[i][j]/WH[i][j]; /* V./(W*H) */
 			}
+		}
 
 		/* Waux =  {V./(W*H)} *H' */
 		/* W = W .* Waux ./ accum_H */
 		cblas_rgemm( CblasRowMajor, CblasNoTrans, CblasNoTrans, 
-			N,				/* [m] */ 
-			K, 				/* [n] */
+			K,				/* [m] */ 
+			N, 				/* [n] */
 			M,				/* [k] */
 			1, 				/* alfa */ 
-			&WH[0][0], M,		 	/* A[m][k], num columnas (lda) */
-			&Htras[0][0], K,		/* B[k][n], num columnas (ldb) */
+			Htras, K,		 	/* A[m][k], num columnas (lda) */
+			WH, M,		/* B[k][n], num columnas (ldb) */
 			0,				/* beta */ 
-			&Waux[0][0], K			/* C[m][n], num columnas (ldc) */
+			Waux, K			/* C[m][n], num columnas (ldc) */
 		);
 
-		for (i=0; i<N; i++)
+		for (int i=0; i<N; i++)
 		{
-			for (j=0; j<K; j++)
+			for (int j=0; j<K; j++)
 			{
 				W[i][j] = W[i][j]*Waux[i][j]/acumm_H[j]; /* W = W .* Waux ./ accum_H */
 			}
@@ -400,21 +374,6 @@ int main(int argc, char *argv[]) {
 	int stop_threshold = atoi(argv[6]);
 
     printf("file=%s\nN=%i M=%i K=%i nTests=%i stop_threshold=%i\n", file_name, N, M, K, nTests, stop_threshold);
-
-#if defined(INTEL_IGPU_DEVICE)
-	NEOGPUDeviceSelector selector{};
-#elif defined(NVIDIA_DEVICE)
-	CUDASelector selector{};
-#elif defined(CPU_DEVICE)	
-	cpu_selector selector{};
-#else
-	default_selector selector{};
-#endif
-
-	sycl::queue q{selector};
-	std::cout << "Running on "
-				<< q.get_device().get_info<sycl::info::device::name>()
-				<< std::endl;
 
 	V                 = get_V(N, M, file_name, q);
 	//q.mem_advise(V, N*M, 0); // mark it as read only memory. Still not available
