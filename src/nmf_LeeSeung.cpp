@@ -249,31 +249,121 @@ void nmf(int niter, queue q, C_REAL *V, C_REAL *WH,
 	C_REAL *W, C_REAL *Htras, C_REAL *Waux, C_REAL *Haux,
 	C_REAL *accW, C_REAL *accH, int N, int M, int K)
 {
+	int iter;
+	
+	int i, j, k;
+
+	C_REAL diff, tot_diff;
+	C_REAL Vn;
+
+
 	/*************************************/
 	/*                                   */
 	/*      Main Iterative Process       */
 	/*                                   */
 	/*************************************/
-	for (int iter = 0; iter < niter; iter++) {
+	
+	for (iter=0; iter<niter; iter++)
+	{
+	
 		/*******************************************/
 		/*** H = H .* (W'*(V./(W*H))) ./ accum_W ***/
 		/*******************************************/
+	
+		/* WH = W*H */
+		cblas_sgemm(CblasRowMajor, CblasTrans, CblasNoTrans, 
+			N,				/* [m] */ 
+			M,				/* [n] */
+			K,				/* [k] */
+			1, 				/* alfa */ 
+			Htras, K, 			/* A[m][k], num columnas (lda) */
+			W, K,		/* B[k][n], num columnas (ldb) */
+			0,				/* beta */ 
+			WH, M			/* C[m][n], num columnas (ldc) */
+		);
 
-        W_mult_H(q, WH, W, Htras, N, M, K);	/* WH = W*H */
-        V_div_WH(q, V, WH, N, M);			/* WH = (V./(W*H) */
-        accum(q, accW, W, N, K); 		/* Shrink into one column */
-        Wt_mult_WH(q, Haux, W, WH, N, M, K);	/* Haux = (W'* {V./(WH)} */
-        mult_M_div_vect(q, Htras, Haux, accW, M, K);/* H = H .* (Haux) ./ accum_W */
+		for (i=0; i<N; i++){
+			for (j=0; j<M; j++)
+			{
+				WH[i][j] = V[i][j]/WH[i][j]; /* V./(W*H) */
+			}
+		}
+
+		/* Reducir a una columna */
+		cblas_saxpy(W, -1.0, acumm_W, 1, acumm_W, 1);
+
+		for (i=1;i<N; i++)
+			for (j=0; j<K; j++)
+				acumm_W[j] += W[i][j];
+
+		cblas_rgemm( CblasColMajor, CblasNoTrans, CblasTrans,
+			K,				/* [m] */
+			M,				/* [n] */
+			N,				/* [k] */
+			1,				/* alfa */
+			&W[0][0], K,			/* A[m][k], num columnas (lda) */
+			&WH[0][0], M,			/* B[k][n], num columnas (ldb) */
+			0,                      	/* beta */
+			&Haux[0][0], K			/* C[m][n], num columnas (ldc) */
+		);
+
+		for (j=0; j<M; j++){
+			for (i=0; i<K; i++)
+				Htras[j][i] = Htras[j][i]*Haux[j][i]/acumm_W[i]; /* H = H .* (Haux) ./ accum_W */
+		}
+
+		/* Reducir a una columna */
+		for (j=0; j<K; j++)
+			acumm_H[j]  = Htras[0][j];
+
+		for (i=1;i<M; i++)
+			for (j=0; j<K; j++)
+			acumm_H[j] += Htras[i][j];
 
 		/*******************************************/
 		/*** W = W .* ((V./(W*H))*H') ./ accum_H ***/
 		/*******************************************/
-        W_mult_H(q, WH, W, Htras, N, M, K);	/* WH = W*H */
-        V_div_WH(q, V, WH, N, M );			/* WH = (V./(W*H) */
-        WH_mult_Ht(q, Waux, WH, Htras, N, M, K);/* Waux =  {V./(W*H)} *H' */
-        accum(q, accH, Htras, M, K);		/* Shrink into one column */
-        mult_M_div_vect(q, W, Waux, accH, N, K);/* W = W .* Waux ./ accum_H */
-    }
+
+
+		/* WH = W*H */
+		/* V./(W*H) */
+		cblas_rgemm( CblasRowMajor, CblasNoTrans, CblasTrans, 
+			N,				/* [m] */ 
+			M, 				/* [n] */
+			K,				/* [k] */
+			1, 				/* alfa */ 
+			&W[0][0], K,		 	/* A[m][k], num columnas (lda) */
+			&Htras[0][0], K,		/* B[k][n], num columnas (ldb) */
+			0,				/* beta */ 
+			&WH[0][0], M			/* C[m][n], num columnas (ldc) */
+		);
+
+		for (i=0; i<N; i++)
+			for (j=0; j<M; j++)
+			{
+				WH[i][j] = V[i][j]/WH[i][j]; /* V./(W*H) */
+			}
+
+		/* Waux =  {V./(W*H)} *H' */
+		/* W = W .* Waux ./ accum_H */
+		cblas_rgemm( CblasRowMajor, CblasNoTrans, CblasNoTrans, 
+			N,				/* [m] */ 
+			K, 				/* [n] */
+			M,				/* [k] */
+			1, 				/* alfa */ 
+			&WH[0][0], M,		 	/* A[m][k], num columnas (lda) */
+			&Htras[0][0], K,		/* B[k][n], num columnas (ldb) */
+			0,				/* beta */ 
+			&Waux[0][0], K			/* C[m][n], num columnas (ldc) */
+		);
+
+		for (i=0; i<N; i++)
+		{
+			for (j=0; j<K; j++)
+			{
+				W[i][j] = W[i][j]*Waux[i][j]/acumm_H[j]; /* W = W .* Waux ./ accum_H */
+			}
+		}
 }
 
 

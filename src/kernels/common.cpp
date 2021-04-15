@@ -1,26 +1,21 @@
 #include "./common.h"
 
 void adjust_WH(queue q, C_REAL *W, C_REAL *Ht, int N, int M, int K) {
-    q.submit([&](handler& cgh) {
-        cgh.parallel_for<class check_W>(range<2>(N, K), [=](id <2> ij){
-            int i = ij[0];
-            int j = ij[1];
+#if defined(INTEL_IGPU_DEVICE)
+	
+#elif defined(CPU_DEVICE)
 
+#endif
+
+    for (int i = 0; i < N; i++)
+        for (int j = 0; j < K; j++)
             if(W[i*K + j] < eps)
                 W[i*K + j] = eps;
-        });
-    });
 
-    q.submit([&](handler& cgh) {
-        cgh.parallel_for<class check_Ht>(range<2>(M, K), [=](id <2> ij){
-            int i = ij[0];
-            int j = ij[1];
-
+    for (int i = 0; i < M; i++)
+        for (int j = 0; j < K; j++)
             if(Ht[i*K + j] < eps)
                 Ht[i*K + j] = eps;
-        });
-    });
-    q.wait();
 }
 
 
