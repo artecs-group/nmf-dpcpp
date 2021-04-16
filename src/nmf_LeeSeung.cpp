@@ -101,8 +101,8 @@ void print_WH(C_REAL *W, C_REAL *Htras, int N, int M, int K) {
 }
 
 
-C_REAL *get_V(int N, int M, char* file_name, queue &q) {
-	C_REAL *V = malloc_shared<C_REAL>(N * M, q);
+C_REAL *get_V(int N, int M, char* file_name) {
+	C_REAL *V = mkl_malloc(sizeof(C_REAL) * N*M, 64);
 
 #ifndef RANDOM
 	FILE *fIn = fopen(file_name, "r");
@@ -223,7 +223,7 @@ void writeSolution(C_REAL *W, C_REAL*Ht, unsigned char *consensus, int N, int M,
 }
 
 
-void nmf(int niter, queue q, C_REAL *V, C_REAL *WH, 
+void nmf(int niter, C_REAL *V, C_REAL *WH, 
 	C_REAL *W, C_REAL *Htras, C_REAL *Waux, C_REAL *Haux,
 	C_REAL *accW, C_REAL *accH, int N, int M, int K)
 {
@@ -375,22 +375,22 @@ int main(int argc, char *argv[]) {
 
     printf("file=%s\nN=%i M=%i K=%i nTests=%i stop_threshold=%i\n", file_name, N, M, K, nTests, stop_threshold);
 
-	V                 = get_V(N, M, file_name, q);
+	V                 = get_V(N, M, file_name);
 	//q.mem_advise(V, N*M, 0); // mark it as read only memory. Still not available
 
-	W                 = malloc_shared<C_REAL>(N * K, q);
-	Htras             = malloc_shared<C_REAL>(M * K, q);
-	WH                = malloc_device<C_REAL>(N * M, q);
-	Haux              = malloc_device<C_REAL>(M * K, q);
-	Waux              = malloc_device<C_REAL>(N * K, q);
-	acumm_W           = malloc_device<C_REAL>(K, q);
-	acumm_H           = malloc_device<C_REAL>(K, q);
+	W                 = mkl_malloc(sizeof(C_REAL) * N*K, 64);
+	Htras             = mkl_malloc(sizeof(C_REAL) * M*K, 64);
+	WH                = mkl_malloc(sizeof(C_REAL) * N*M, 64);
+	Haux              = mkl_malloc(sizeof(C_REAL) * M*K, 64);
+	Waux              = mkl_malloc(sizeof(C_REAL) * N*K, 64);
+	acumm_W           = mkl_malloc(sizeof(C_REAL) * K, 64); 
+	acumm_H           = mkl_malloc(sizeof(C_REAL) * K, 64); 
 
-    W_best              = malloc_host<C_REAL>(N * K, q);
-    Htras_best          = malloc_host<C_REAL>(M * K, q);
-    classification      = malloc_host<unsigned char>(M, q);
-	last_classification = malloc_host<unsigned char>(M, q);
-	consensus           = malloc_host<unsigned char>(M*(M-1)/2, q);
+    W_best              = mkl_malloc(sizeof(C_REAL) * N*K, 64);
+    Htras_best          = mkl_malloc(sizeof(C_REAL) * M*K, 64);
+    classification      = mkl_malloc(sizeof(C_REAL) * M, 64);
+	last_classification = mkl_malloc(sizeof(C_REAL) * M, 64);
+	consensus           = mkl_malloc(sizeof(C_REAL) * (M*(M-1)/2), 64);
 
 	/**********************************/
 	/******     MAIN PROGRAM     ******/
@@ -410,7 +410,7 @@ int main(int argc, char *argv[]) {
 			iter++;
 
 			/* Main Proccess of NMF Brunet */
-			nmf(NITER_TEST_CONV, q, V, WH, W, 
+			nmf(NITER_TEST_CONV, V, WH, W, 
 				Htras, Waux, Haux, acumm_W, acumm_H,
 				N, M, K);
 
@@ -461,19 +461,19 @@ int main(int argc, char *argv[]) {
 	//printMATRIX(W_best, N, K);
 
     /* Free memory used */
-	free(V, q);
-	free(W, q);
-	free(Htras, q);
-	free(WH, q);
-	free(Haux, q);
-	free(Waux, q);
-	free(acumm_W, q);
-	free(acumm_H, q);
-	free(W_best, q);
-	free(Htras_best, q);
-	free(classification, q);
-	free(last_classification, q);
-	free(consensus, q);
+	mkl_free (V);
+	mkl_free (W);
+	mkl_free (Htras);
+	mkl_free (WH);
+	mkl_free (Haux);
+	mkl_free (Waux);
+	mkl_free (acumm_W);
+	mkl_free (acumm_H);
+	mkl_free (W_best);
+	mkl_free (Htras_best);
+	mkl_free (classification);
+	mkl_free (last_classification);
+	mkl_free (consensus);
 
 	return 0;
 }
