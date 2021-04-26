@@ -10,7 +10,7 @@ GPU = GPU_DEVICE
 PDEVICE = $(GPU)
 PREAL = REAL_S
 
-MKL_LDFLAGS = -I${MKLROOT}/include -qmkl -DMKL_ILP64
+MKL_LDFLAGS = -I${MKLROOT}/include -qmkl
 
 ifeq ($(DEVICE),cpu)
   PDEVICE = CPU_DEVICE

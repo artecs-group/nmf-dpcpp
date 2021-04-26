@@ -118,7 +118,7 @@ void print_WH(C_REAL *W, C_REAL *Htras, int N, int M, int K) {
 
 
 C_REAL *get_V(int N, int M, char* file_name) {
-	C_REAL *V = mkl_malloc(sizeof(C_REAL) * N*M, 64);
+	C_REAL *V = (C_REAL *) mkl_malloc(sizeof(C_REAL) * N*M, 64);
 
 #ifndef RANDOM
 	FILE *fIn = fopen(file_name, "r");
@@ -239,18 +239,16 @@ void writeSolution(C_REAL *W, C_REAL*Ht, unsigned char *consensus, int N, int M,
 }
 
 
-void adjust_WH(C_REAL **W, C_REAL **Ht, int N, int M, int K) {
-	int i, j;
-	
-	for (i=0; i<N; i++)
-		for (j=0; j<K; j++)
-			if (W[i][j]<eps)
-				W[i][j]=eps;
+void adjust_WH(C_REAL *W, C_REAL *Ht, int N, int M, int K) {
+	for (int i = 0; i < N; i++)
+		for (int j = 0; j < K; j++)
+			if (W[i*K + j] < eps)
+				W[i*K + j] = eps;
 				
-	for (i=0; i<M; i++)
-		for (j=0; j<K; j++)
-			if (Ht[i][j]<eps)
-				Ht[i][j]=eps;				 
+	for (int i = 0; i < M; i++)
+		for (int j = 0; j < K; j++)
+			if (Ht[i*K + j] < eps)
+				Ht[i*K + j] = eps;				 
 }
 
 
@@ -290,19 +288,19 @@ int main(int argc, char *argv[]) {
     printf("file=%s\nN=%i M=%i K=%i nTests=%i stop_threshold=%i\n", file_name, N, M, K, nTests, stop_threshold);
 
 	V                 = get_V(N, M, file_name);
-	W                 = mkl_malloc(sizeof(C_REAL) * N*K, 64);
-	Htras             = mkl_malloc(sizeof(C_REAL) * M*K, 64);
-	WH                = mkl_malloc(sizeof(C_REAL) * N*M, 64);
-	Haux              = mkl_malloc(sizeof(C_REAL) * M*K, 64);
-	Waux              = mkl_malloc(sizeof(C_REAL) * N*K, 64);
-	acumm_W           = mkl_malloc(sizeof(C_REAL) * K, 64); 
-	acumm_H           = mkl_malloc(sizeof(C_REAL) * K, 64); 
+	W                 = (C_REAL *) mkl_malloc(sizeof(C_REAL) * N*K, 64);
+	Htras             = (C_REAL *) mkl_malloc(sizeof(C_REAL) * M*K, 64);
+	WH                = (C_REAL *) mkl_malloc(sizeof(C_REAL) * N*M, 64);
+	Haux              = (C_REAL *) mkl_malloc(sizeof(C_REAL) * M*K, 64);
+	Waux              = (C_REAL *) mkl_malloc(sizeof(C_REAL) * N*K, 64);
+	acumm_W           = (C_REAL *) mkl_malloc(sizeof(C_REAL) * K, 64); 
+	acumm_H           = (C_REAL *) mkl_malloc(sizeof(C_REAL) * K, 64); 
 
-    W_best              = mkl_malloc(sizeof(C_REAL) * N*K, 64);
-    Htras_best          = mkl_malloc(sizeof(C_REAL) * M*K, 64);
-    classification      = mkl_malloc(sizeof(C_REAL) * M, 64);
-	last_classification = mkl_malloc(sizeof(C_REAL) * M, 64);
-	consensus           = mkl_malloc(sizeof(C_REAL) * (M*(M-1)/2), 64);
+    W_best              = (C_REAL *) mkl_malloc(sizeof(C_REAL) * N*K, 64);
+    Htras_best          = (C_REAL *) mkl_malloc(sizeof(C_REAL) * M*K, 64);
+    classification      = (unsigned char *) mkl_malloc(sizeof(unsigned char) * M, 64);
+	last_classification = (unsigned char *) mkl_malloc(sizeof(unsigned char) * M, 64);
+	consensus           = (unsigned char *) mkl_malloc(sizeof(unsigned char) * (M*(M-1)/2), 64);
 
 	/**********************************/
 	/******     MAIN PROGRAM     ******/

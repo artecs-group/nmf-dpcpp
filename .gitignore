@@ -1,5 +1,5 @@
 *.o
 *.linkinfo
-nmf
+main
 .vscode
 solution-NMFLeeSeung_*
