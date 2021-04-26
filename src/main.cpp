@@ -12,7 +12,7 @@ const char PAD = 32;
 // extern void cpu_nmf(int niter, C_REAL *V, C_REAL *WH, C_REAL *W, C_REAL *Htras, 
 //     C_REAL *Waux, C_REAL *Haux, C_REAL *accW, C_REAL *accH, int N, int M, int K);
 
-extern void gpu_nmf(int dnum, int niter, C_REAL *V, C_REAL *WH, C_REAL *W, C_REAL *Htras, 
+extern void gpu_nmf(int niter, C_REAL *V, C_REAL *WH, C_REAL *W, C_REAL *Htras, 
     C_REAL *Waux, C_REAL *Haux, C_REAL *accW, C_REAL *accH, int N, int M, int K);
 
 
@@ -264,7 +264,6 @@ int main(int argc, char *argv[]) {
 	char file_name[255];
 	int iter;
 	int diff, inc;
-	int dnum = 0;
 	
 	double time0, time1;
 	
@@ -322,7 +321,7 @@ int main(int argc, char *argv[]) {
 			iter++;
 
 			/* Main Proccess of NMF Brunet */
-			gpu_nmf(dnum, NITER_TEST_CONV, V, WH, W, 
+			gpu_nmf(NITER_TEST_CONV, V, WH, W, 
 				Htras, Waux, Haux, acumm_W, acumm_H,
 				N, M, K);
 
@@ -370,7 +369,7 @@ int main(int argc, char *argv[]) {
 	/* Write the solution of the problem */
 	writeSolution(W_best, Htras_best, consensus, N, M, K, nTests);
 
-	//printMATRIX(W_best, N, K);
+	printMATRIX(W_best, N, K);
 
     /* Free memory used */
 	mkl_free (V);

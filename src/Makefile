@@ -22,6 +22,7 @@ endif
 
 # Default compiler and flags
 CC = dpcpp
+CLINK = -fsycl-device-code-split=per_kernel -DMKL_ILP64 ${MKLROOT}/lib/intel64/libmkl_sycl.a -Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_intel_ilp64.a ${MKLROOT}/lib/intel64/libmkl_sequential.a ${MKLROOT}/lib/intel64/libmkl_core.a -Wl,--end-group -lsycl -lOpenCL -lpthread -ldl -lm
 CFLAGS = -D$(PDEVICE) -D$(PREAL) -fiopenmp -fopenmp-targets=spir64
 
 # Debug Flags
@@ -35,7 +36,7 @@ ifeq ($(OPTIMIZE),yes)
 endif
 
 main: main.o ./nmf/nmf.o
-	$(CC) $(CFLAGS) main.o ./nmf/nmf.o -o main $(MKL_LDFLAGS)
+	$(CC) $(CFLAGS) $(CLINK) main.o ./nmf/nmf.o -o main $(MKL_LDFLAGS)
 
 main.o: ./nmf/nmf.o ./main.cpp 
 	$(CC) $(CFLAGS) main.cpp -c -o main.o $(MKL_LDFLAGS)

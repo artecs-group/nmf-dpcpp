@@ -120,7 +120,7 @@
 // }
 
 
-void gpu_nmf(int dnum, int niter, C_REAL *V, C_REAL *WH, 
+void gpu_nmf(int niter, C_REAL *V, C_REAL *WH, 
 	C_REAL *W, C_REAL *Htras, C_REAL *Waux, C_REAL *Haux,
 	C_REAL *acumm_W, C_REAL *acumm_H, int N, int M, int K)
 {
@@ -133,7 +133,7 @@ void gpu_nmf(int dnum, int niter, C_REAL *V, C_REAL *WH,
 	int num_blocks = 20;
 
 	#pragma omp target enter data map(alloc:WH[0:N*M], Waux[0:N*K], Haux[0:M*K], acumm_W[0:K], acumm_H[0:K]) \
-	map(to:W[0:N*K], Htras[0:M*K], V[0:N*M]) device(dnum)
+	map(to:W[0:N*K], Htras[0:M*K], V[0:N*M])
 	{
 		for (int iter = 0; iter < niter; iter++) {
 		
@@ -143,7 +143,7 @@ void gpu_nmf(int dnum, int niter, C_REAL *V, C_REAL *WH,
 			/* WH = W*H */
 			#pragma omp task shared(Htras, W, WH) depend(out: WH)
 			{
-				#pragma omp target variant dispatch device(dnum)
+				#pragma omp target variant dispatch
 				{
 					cblas_rgemm(CblasRowMajor, CblasTrans, CblasNoTrans, 
 						N,				/* [m] */ 
@@ -160,7 +160,7 @@ void gpu_nmf(int dnum, int niter, C_REAL *V, C_REAL *WH,
 			//#pragma omptaskwait
 
 
-			#pragma omp target teams distribute parallel for simd device(dnum)
+			#pragma omp target teams distribute parallel for simd
 			//num_teams(num_blocks)
 			for (int i = 0; i < N; i++) {
 				for (int j = 0; j < M; j++) {
@@ -169,12 +169,12 @@ void gpu_nmf(int dnum, int niter, C_REAL *V, C_REAL *WH,
 			}
 
 			/* Reducir a una columna */
-			#pragma omp target teams distribute parallel for simd device(dnum)
+			#pragma omp target teams distribute parallel for simd
 			for(int i = 0; i < K; i++) {
 				acumm_W[i] = 0;
 			}
 
-			#pragma omp target teams distribute parallel for simd device(dnum)
+			#pragma omp target teams distribute parallel for simd
 			for (int i = 1; i < N; i++) {
 				for (int j = 0; j < K; j++) {
 					acumm_W[j] += W[i*K + j];
@@ -183,7 +183,7 @@ void gpu_nmf(int dnum, int niter, C_REAL *V, C_REAL *WH,
 
 			#pragma omp task shared(W, WH, Haux) depend(out: Haux)
 			{
-				#pragma omp target variant dispatch device(dnum)
+				#pragma omp target variant dispatch
 				{
 					cblas_rgemm(CblasRowMajor, CblasNoTrans, CblasTrans,
 						K,				/* [m] */
@@ -198,7 +198,7 @@ void gpu_nmf(int dnum, int niter, C_REAL *V, C_REAL *WH,
 				}
 			}
 
-			#pragma omp target teams distribute parallel for simd device(dnum)
+			#pragma omp target teams distribute parallel for simd
 			for (int j = 0; j < M; j++) {
 				for (int i = 0; i < K; i++) {
 					Htras[j*K + i] = Htras[j*K + i] * Haux[j*K + i] / acumm_W[i]; /* H = H .* (Haux) ./ accum_W */
@@ -206,12 +206,12 @@ void gpu_nmf(int dnum, int niter, C_REAL *V, C_REAL *WH,
 			}
 
 			/* Reducir a una columna */
-			#pragma omp target teams distribute parallel for simd device(dnum)
+			#pragma omp target teams distribute parallel for simd
 			for(int i = 0; i < K; i++) {
 				acumm_H[i] = 0;
 			}
 
-			#pragma omp target teams distribute parallel for simd device(dnum)
+			#pragma omp target teams distribute parallel for simd
 			for (int i = 1; i < N; i++) {
 				for (int j = 0; j < K; j++) {
 					acumm_H[j] += Htras[i*K + j];
@@ -227,7 +227,7 @@ void gpu_nmf(int dnum, int niter, C_REAL *V, C_REAL *WH,
 			/* V./(W*H) */
 			#pragma omp task shared(Htras, W, WH) depend(out: WH)
 			{
-				#pragma omp target variant dispatch device(dnum)
+				#pragma omp target variant dispatch
 				{
 					cblas_rgemm( CblasRowMajor, CblasTrans, CblasNoTrans, 
 						M,				/* [m] */ 
@@ -242,7 +242,7 @@ void gpu_nmf(int dnum, int niter, C_REAL *V, C_REAL *WH,
 				}
 			}
 
-			#pragma omp target teams distribute parallel for simd device(dnum)
+			#pragma omp target teams distribute parallel for simd
 			for (int i = 0; i < N; i++) {
 				for (int j = 0; j < M; j++) {
 					WH[i*M + j] = V[i*M + j] / WH[i*M + j]; /* V./(W*H) */
@@ -253,7 +253,7 @@ void gpu_nmf(int dnum, int niter, C_REAL *V, C_REAL *WH,
 			/* W = W .* Waux ./ accum_H */
 			#pragma omp task shared(Htras, WH, Waux) depend(out: Waux)
 			{
-				#pragma omp target variant dispatch device(dnum)
+				#pragma omp target variant dispatch
 				{
 					cblas_rgemm( CblasRowMajor, CblasNoTrans, CblasNoTrans, 
 						K,				/* [m] */ 
@@ -269,7 +269,7 @@ void gpu_nmf(int dnum, int niter, C_REAL *V, C_REAL *WH,
 			}
 
 
-			#pragma omp target teams distribute parallel for simd device(dnum)
+			#pragma omp target teams distribute parallel for simd
 			for (int i = 0; i < N; i++) {
 				for (int j = 0; j < K; j++) {
 					W[i*K + j] = W[i*K + j] * Waux[i*K + j] / acumm_H[j]; /* W = W .* Waux ./ accum_H */
@@ -277,5 +277,5 @@ void gpu_nmf(int dnum, int niter, C_REAL *V, C_REAL *WH,
 			}
 		}
 	}
-	#pragma omp target exit data map(from:W[0:N*K], Htras[0:M*K]) device(dnum)
+	#pragma omp target exit data map(from:W[0:N*K], Htras[0:M*K])
 }
