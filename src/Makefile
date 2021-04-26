@@ -1,28 +1,19 @@
 OPTIMIZE    = yes
 DEBUG       = no
-DEVICE      = cpu # {cpu, nvidia, igpu}
-KERNEL      = bare # {bare, blas}
+DEVICE      = gpu # {cpu, gpu}
 REAL        = simple # {simple, double}
 
 CPU = CPU_DEVICE
-IGPU = INTEL_IGPU_DEVICE
-NVIDIA = NVIDIA_DEVICE
+GPU = GPU_DEVICE
 
 # Program flags
-PDEVICE = $(CPU)
-PKERNEL = BARE_KERNEL
+PDEVICE = $(GPU)
 PREAL = REAL_S
 
-MKL_LDFLAGS = -I${MKLROOT}/include -qmkl -fsycl-device-code-split=per_kernel
+MKL_LDFLAGS = -I${MKLROOT}/include -qmkl -DMKL_ILP64
 
-ifeq ($(DEVICE),nvidia)
-  PDEVICE = NVIDIA_DEVICE
-else ifeq ($(DEVICE), igpu)
-  PDEVICE = $(IGPU)
-endif
-
-ifeq ($(KERNEL),blas)
-  PKERNEL = BLAS_KERNEL
+ifeq ($(DEVICE),cpu)
+  PDEVICE = CPU_DEVICE
 endif
 
 ifeq ($(REAL),double)
@@ -31,21 +22,7 @@ endif
 
 # Default compiler and flags
 CC = dpcpp
-
-ifeq ($(CC),dpcpp)
-  CFLAGS = -D$(PDEVICE) -D$(PKERNEL) -D$(PREAL)
-else
-  CFLAGS := -std=c++11 -Wall -fsycl -D$(PDEVICE) -D$(PKERNEL) -D$(PREAL)
-endif
-
-# Intel DPC++ Compiler
-ifeq ($(CC), dpcpp)
-  # nvidia gpu is not supported in dpcpp
-  ifeq ($(PDEVICE), $(NVIDIA))
-    PDEVICE = $(IGPU)
-  endif
-  CFLAGS = -D$(PDEVICE) -D$(PKERNEL) -D$(PREAL)
-endif
+CFLAGS = -D$(PDEVICE) -D$(PREAL) -fiopenmp -fopenmp-targets=spir64
 
 # Debug Flags
 ifeq ($(DEBUG),yes)
@@ -57,46 +34,18 @@ ifeq ($(OPTIMIZE),yes)
   CFLAGS += -O3
 endif
 
-nmf: nmf_LeeSeung.o \
-  ./kernels/bare_kernel/bare_kernel.o \
-  ./kernels/blas_kernel/blas_kernel.o \
-  ./kernels/common.o
-	$(CC) $(MKL_CXXFLAGS) $(CFLAGS) nmf_LeeSeung.o \
-    ./kernels/bare_kernel/bare_kernel.o \
-    ./kernels/blas_kernel/blas_kernel.o \
-    ./kernels/common.o \
-    -o nmf $(MKL_LDFLAGS)
+main: main.o ./nmf/nmf.o
+	$(CC) $(CFLAGS) main.o ./nmf/nmf.o -o main $(MKL_LDFLAGS)
 
-nmf_LeeSeung.o: ./kernels/bare_kernel/bare_kernel.o \
-  ./kernels/blas_kernel/blas_kernel.o \
-  ./kernels/common.o \
-  nmf_LeeSeung.cpp
-	$(CC) $(CFLAGS) nmf_LeeSeung.cpp -c -o nmf_LeeSeung.o $(MKL_LDFLAGS)
+main.o: ./nmf/nmf.o ./main.cpp 
+	$(CC) $(CFLAGS) main.cpp -c -o main.o $(MKL_LDFLAGS)
 
-./kernels/blas_kernel/blas_kernel.o: ./kernels/blas_kernel/blas_kernel.cpp \
-  ./kernels/blas_kernel/blas_kernel.h \
-  ./kernels/common.o
-	$(CC) $(CFLAGS) ./kernels/blas_kernel/blas_kernel.cpp -c \
-    -o ./kernels/blas_kernel/blas_kernel.o $(MKL_LDFLAGS)
+./nmf/nmf.o: ./common.h ./nmf/nmf.cpp
+	$(CC) $(CFLAGS) ./nmf/nmf.cpp -c -o ./nmf/nmf.o $(MKL_LDFLAGS)
 
-./kernels/bare_kernel/bare_kernel.o: ./kernels/bare_kernel/bare_kernel.cpp \
-  ./kernels/bare_kernel/bare_kernel.h \
-  ./kernels/common.o
-	$(CC) $(CFLAGS) ./kernels/bare_kernel/bare_kernel.cpp -c \
-    -o ./kernels/bare_kernel/bare_kernel.o $(MKL_LDFLAGS)
-
-./kernels/common.o: ./kernels/common.cpp ./kernels/common.h
-	$(CC) $(CFLAGS) ./kernels/common.cpp -c \
-    -o ./kernels/common.o $(MKL_LDFLAGS)
-
-
-run: nmf
-	./nmf V.bin 2000 62 4 100 20
+run: main
+	./main V.bin 2000 62 4 100 20
 
 .PHONY: clean
 clean:
-	rm -f nmf solution-NMFLeeSeung_* \
-  *.o \
-  ./kernels/*.o \
-  ./kernels/bare_kernel/*.o \
-  ./kernels/blas_kernel/*.o
+	rm -f main solution-NMFLeeSeung_* *.o ./nmf/*.o

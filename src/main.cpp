@@ -1,5 +1,21 @@
 #include "common.h"
 
+/* Number of iterations before testing convergence (can be adjusted) */
+const int NITER_TEST_CONV = 10;
+
+/* Spacing of floating point numbers. */
+const C_REAL eps = 2.2204e-16;
+
+const bool verbose = false;
+const char PAD = 32;
+
+// extern void cpu_nmf(int niter, C_REAL *V, C_REAL *WH, C_REAL *W, C_REAL *Htras, 
+//     C_REAL *Waux, C_REAL *Haux, C_REAL *accW, C_REAL *accH, int N, int M, int K);
+
+extern void gpu_nmf(int dnum, int niter, C_REAL *V, C_REAL *WH, C_REAL *W, C_REAL *Htras, 
+    C_REAL *Waux, C_REAL *Haux, C_REAL *accW, C_REAL *accH, int N, int M, int K);
+
+
 double gettime() {
 	double final_time;
 	struct timeval tv1;
@@ -223,121 +239,18 @@ void writeSolution(C_REAL *W, C_REAL*Ht, unsigned char *consensus, int N, int M,
 }
 
 
-void nmf(int niter, C_REAL *V, C_REAL *WH, 
-	C_REAL *W, C_REAL *Htras, C_REAL *Waux, C_REAL *Haux,
-	C_REAL *accW, C_REAL *accH, int N, int M, int K)
-{
-	/*************************************/
-	/*                                   */
-	/*      Main Iterative Process       */
-	/*                                   */
-	/*************************************/
+void adjust_WH(C_REAL **W, C_REAL **Ht, int N, int M, int K) {
+	int i, j;
 	
-	for (int iter=0; iter<niter; iter++)
-	{
-	
-		/*******************************************/
-		/*** H = H .* (W'*(V./(W*H))) ./ accum_W ***/
-		/*******************************************/
-#if defined(INTEL_IGPU_DEVICE)
-	
-#elif defined(CPU_DEVICE)
-
-#endif
-		/* WH = W*H */
-		cblas_sgemm(CblasRowMajor, CblasTrans, CblasNoTrans, 
-			N,				/* [m] */ 
-			M,				/* [n] */
-			K,				/* [k] */
-			1, 				/* alfa */ 
-			Htras, K, 			/* A[m][k], num columnas (lda) */
-			W, K,		/* B[k][n], num columnas (ldb) */
-			0,				/* beta */ 
-			WH, M			/* C[m][n], num columnas (ldc) */
-		);
-
-		for (int i=0; i<N; i++){
-			for (int j=0; j<M; j++)
-			{
-				WH[i][j] = V[i][j]/WH[i][j]; /* V./(W*H) */
-			}
-		}
-
-		/* Reducir a una columna */
-		cblas_saxpyi(K, -1.0, acumm_W, 1, acumm_W);
-
-		for (int i=1;i<N; i++)
-			for (int j=0; j<K; j++)
-				acumm_W[j] += W[i][j];
-
-		cblas_rgemm(CblasRowMajor, CblasNoTrans, CblasTrans,
-			K,				/* [m] */
-			M,				/* [n] */
-			N,				/* [k] */
-			1,				/* alfa */
-			W, K,			/* A[m][k], num columnas (lda) */
-			WH, M,			/* B[k][n], num columnas (ldb) */
-			0,                      	/* beta */
-			Haux, K			/* C[m][n], num columnas (ldc) */
-		);
-
-		for (int j=0; j<M; j++){
-			for (int i=0; i<K; i++)
-				Htras[j][i] = Htras[j][i]*Haux[j][i]/acumm_W[i]; /* H = H .* (Haux) ./ accum_W */
-		}
-
-		/* Reducir a una columna */
-		cblas_saxpyi(K, -1.0, acumm_H, 1, acumm_H);
-
-		for (int i=1;i<M; i++)
-			for (int j=0; j<K; j++)
-			acumm_H[j] += Htras[i][j];
-
-		/*******************************************/
-		/*** W = W .* ((V./(W*H))*H') ./ accum_H ***/
-		/*******************************************/
-
-
-		/* WH = W*H */
-		/* V./(W*H) */
-		cblas_rgemm( CblasRowMajor, CblasTrans, CblasNoTrans, 
-			M,				/* [m] */ 
-			N, 				/* [n] */
-			K,				/* [k] */
-			1, 				/* alfa */ 
-			Htras, K,		 	/* A[m][k], num columnas (lda) */
-			W, K,		/* B[k][n], num columnas (ldb) */
-			0,				/* beta */ 
-			WH, M			/* C[m][n], num columnas (ldc) */
-		);
-
-		for (int i=0; i<N; i++) {
-			for (int j=0; j<M; j++)
-			{
-				WH[i][j] = V[i][j]/WH[i][j]; /* V./(W*H) */
-			}
-		}
-
-		/* Waux =  {V./(W*H)} *H' */
-		/* W = W .* Waux ./ accum_H */
-		cblas_rgemm( CblasRowMajor, CblasNoTrans, CblasNoTrans, 
-			K,				/* [m] */ 
-			N, 				/* [n] */
-			M,				/* [k] */
-			1, 				/* alfa */ 
-			Htras, K,		 	/* A[m][k], num columnas (lda) */
-			WH, M,		/* B[k][n], num columnas (ldb) */
-			0,				/* beta */ 
-			Waux, K			/* C[m][n], num columnas (ldc) */
-		);
-
-		for (int i=0; i<N; i++)
-		{
-			for (int j=0; j<K; j++)
-			{
-				W[i][j] = W[i][j]*Waux[i][j]/acumm_H[j]; /* W = W .* Waux ./ accum_H */
-			}
-		}
+	for (i=0; i<N; i++)
+		for (j=0; j<K; j++)
+			if (W[i][j]<eps)
+				W[i][j]=eps;
+				
+	for (i=0; i<M; i++)
+		for (j=0; j<K; j++)
+			if (Ht[i][j]<eps)
+				Ht[i][j]=eps;				 
 }
 
 
@@ -353,6 +266,7 @@ int main(int argc, char *argv[]) {
 	char file_name[255];
 	int iter;
 	int diff, inc;
+	int dnum = 0;
 	
 	double time0, time1;
 	
@@ -376,8 +290,6 @@ int main(int argc, char *argv[]) {
     printf("file=%s\nN=%i M=%i K=%i nTests=%i stop_threshold=%i\n", file_name, N, M, K, nTests, stop_threshold);
 
 	V                 = get_V(N, M, file_name);
-	//q.mem_advise(V, N*M, 0); // mark it as read only memory. Still not available
-
 	W                 = mkl_malloc(sizeof(C_REAL) * N*K, 64);
 	Htras             = mkl_malloc(sizeof(C_REAL) * M*K, 64);
 	WH                = mkl_malloc(sizeof(C_REAL) * N*M, 64);
@@ -398,6 +310,7 @@ int main(int argc, char *argv[]) {
 	time0 = gettime();
 
 	for(int test = 0; test < nTests; test++) {
+
 		/* Init W and H */
 		initWH(W, Htras, N, M, K);
 
@@ -406,16 +319,17 @@ int main(int argc, char *argv[]) {
 		stop   = 0;
 		iter   = 0;
 		inc    = 0;
+
 		while(iter < niters && !stop) {
 			iter++;
 
 			/* Main Proccess of NMF Brunet */
-			nmf(NITER_TEST_CONV, V, WH, W, 
+			gpu_nmf(dnum, NITER_TEST_CONV, V, WH, W, 
 				Htras, Waux, Haux, acumm_W, acumm_H,
 				N, M, K);
 
 			/* Adjust small values to avoid undeflow: h=max(h,eps);w=max(w,eps); */
-			adjust_WH(q, W, Htras, N, M, K);
+			adjust_WH(W, Htras, N, M, K);
 
 			/* Test of convergence: construct connectivity matrix */
 			get_classification(Htras, classification, M, K);
