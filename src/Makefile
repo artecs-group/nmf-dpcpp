@@ -10,7 +10,7 @@ GPU = GPU_DEVICE
 PDEVICE = $(GPU)
 PREAL = REAL_S
 
-MKL_LDFLAGS = -I${MKLROOT}/include -qmkl
+MKL_LDFLAGS = -I${MKLROOT}/include -qmkl -DMKL_ILP64
 
 ifeq ($(DEVICE),cpu)
   PDEVICE = CPU_DEVICE
@@ -22,7 +22,7 @@ endif
 
 # Default compiler and flags
 CC = dpcpp
-CLINK = -fsycl-device-code-split=per_kernel -DMKL_ILP64 ${MKLROOT}/lib/intel64/libmkl_sycl.a -Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_intel_ilp64.a ${MKLROOT}/lib/intel64/libmkl_sequential.a ${MKLROOT}/lib/intel64/libmkl_core.a -Wl,--end-group -lsycl -lOpenCL -lpthread -ldl -lm
+CLINK = -fiopenmp -fopenmp-targets=spir64  -fsycl  -L${MKLROOT}/lib/intel64 -lmkl_sycl -lmkl_intel_ilp64 -lmkl_intel_thread -lmkl_core -liomp5 -lsycl -lOpenCL -lstdc++ -lpthread -lm -ldl
 CFLAGS = -D$(PDEVICE) -D$(PREAL) -fiopenmp -fopenmp-targets=spir64
 
 # Debug Flags
