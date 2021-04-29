@@ -154,8 +154,6 @@ void gpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 					WH, M			/* C[m][n], num columnas (ldc) */
 				);
 			}
-			//#pragma omptaskwait
-
 
 			#pragma omp target teams distribute parallel for simd
 			//num_teams(num_blocks)
@@ -207,7 +205,7 @@ void gpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 
 			for (int j = 0; j < K; j++){
 				#pragma omp target teams distribute parallel for simd reduction(+:acumm_H[j]) map(to:j)
-				for (int i = 0; i < N; i++) {
+				for (int i = 0; i < M; i++) {
 					acumm_H[j] += Htras[i*K + j];
 				}
 			}

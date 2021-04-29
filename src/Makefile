@@ -45,7 +45,7 @@ main.o: ./nmf/nmf.o ./main.cpp
 	$(CC) $(CFLAGS) ./nmf/nmf.cpp -c -o ./nmf/nmf.o $(MKL_LDFLAGS)
 
 run: main
-	./main V.bin 2000 62 4 100 20
+	./main V.bin 5 4 2 1 20
 
 .PHONY: clean
 clean:

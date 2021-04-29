@@ -41,16 +41,6 @@ void matrix_copy2D(C_REAL *in, C_REAL *out, int nx, int ny) {
 
 
 void initWH(C_REAL *W, C_REAL *Htras, int N, int M, int K) {	
-	srand(0);
-
-	for (int i = 0; i < N; i++)
-		for (int j = 0; j < K; j++)
-			W[i*K + j] = ((C_REAL)(rand()))/RAND_MAX;
-
-	for (int i = 0; i < M; i++)
-        for (int j = 0; j < K; j++)
-			Htras[i*K + j] = ((C_REAL)(rand()))/RAND_MAX;
-
 #ifdef DEBUG
 	/* Added to debug */
 	FILE *fIn;
@@ -64,6 +54,16 @@ void initWH(C_REAL *W, C_REAL *Htras, int N, int M, int K) {
 	fIn = fopen("h_bin.bin", "r");
 	fread(Htras, sizeof(C_REAL), size_H, fIn);
 	fclose(fIn);
+#else
+	srand(0);
+
+	for (int i = 0; i < N; i++)
+		for (int j = 0; j < K; j++)
+			W[i*K + j] = ((C_REAL)(rand()))/RAND_MAX;
+
+	for (int i = 0; i < M; i++)
+        for (int j = 0; j < K; j++)
+			Htras[i*K + j] = ((C_REAL)(rand()))/RAND_MAX;
 #endif
 }
 
