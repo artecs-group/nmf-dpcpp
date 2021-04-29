@@ -141,21 +141,18 @@ void gpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 			/*** H = H .* (W'*(V./(W*H))) ./ accum_W ***/
 			/*******************************************/
 			/* WH = W*H */
-			#pragma omp task shared(Htras, W, WH) depend(out: WH)
+			#pragma omp target variant dispatch use_device_ptr(W, Htras, WH)
 			{
-				#pragma omp target variant dispatch
-				{
-					cblas_rgemm(CblasRowMajor, CblasTrans, CblasNoTrans, 
-						N,				/* [m] */ 
-						M,				/* [n] */
-						K,				/* [k] */
-						1, 				/* alfa */ 
-						Htras, K, 			/* A[m][k], num columnas (lda) */
-						W, K,		/* B[k][n], num columnas (ldb) */
-						0,				/* beta */ 
-						WH, M			/* C[m][n], num columnas (ldc) */
-					);
-				}
+				cblas_rgemm(CblasRowMajor, CblasNoTrans, CblasTrans, 
+					N,				/* [m] */ 
+					M,				/* [n] */
+					K,				/* [k] */
+					1, 				/* alfa */ 
+					W, K, 			/* A[m][k], num columnas (lda) */
+					Htras, K,		/* B[k][n], num columnas (ldb) */
+					0,				/* beta */ 
+					WH, M			/* C[m][n], num columnas (ldc) */
+				);
 			}
 			//#pragma omptaskwait
 
@@ -181,21 +178,18 @@ void gpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 				}
 			}
 
-			#pragma omp task shared(W, WH, Haux) depend(out: Haux)
+			#pragma omp target variant dispatch use_device_ptr(W, WH, Haux)
 			{
-				#pragma omp target variant dispatch
-				{
-					cblas_rgemm(CblasRowMajor, CblasNoTrans, CblasTrans,
-						K,				/* [m] */
-						M,				/* [n] */
-						N,				/* [k] */
-						1,				/* alfa */
-						W, K,			/* A[m][k], num columnas (lda) */
-						WH, M,			/* B[k][n], num columnas (ldb) */
-						0,                      	/* beta */
-						Haux, K			/* C[m][n], num columnas (ldc) */
-					);
-				}
+				cblas_rgemm(CblasColMajor, CblasNoTrans, CblasTrans,
+					K,				/* [m] */
+					M,				/* [n] */
+					N,				/* [k] */
+					1,				/* alfa */
+					W, K,			/* A[m][k], num columnas (lda) */
+					WH, M,			/* B[k][n], num columnas (ldb) */
+					0,                      	/* beta */
+					Haux, K			/* C[m][n], num columnas (ldc) */
+				);
 			}
 
 			#pragma omp target teams distribute parallel for simd
@@ -225,21 +219,18 @@ void gpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 
 			/* WH = W*H */
 			/* V./(W*H) */
-			#pragma omp task shared(Htras, W, WH) depend(out: WH)
+			#pragma omp target variant dispatch use_device_ptr(W, Htras, WH)
 			{
-				#pragma omp target variant dispatch
-				{
-					cblas_rgemm( CblasRowMajor, CblasTrans, CblasNoTrans, 
-						M,				/* [m] */ 
-						N, 				/* [n] */
-						K,				/* [k] */
-						1, 				/* alfa */ 
-						Htras, K,		 	/* A[m][k], num columnas (lda) */
-						W, K,		/* B[k][n], num columnas (ldb) */
-						0,				/* beta */ 
-						WH, M			/* C[m][n], num columnas (ldc) */
-					);
-				}
+				cblas_rgemm( CblasRowMajor, CblasNoTrans, CblasTrans, 
+					N,				/* [m] */ 
+					M, 				/* [n] */
+					K,				/* [k] */
+					1, 				/* alfa */ 
+					W, K,		 	/* A[m][k], num columnas (lda) */
+					Htras, K,		/* B[k][n], num columnas (ldb) */
+					0,				/* beta */ 
+					WH, M			/* C[m][n], num columnas (ldc) */
+				);
 			}
 
 			#pragma omp target teams distribute parallel for simd
@@ -251,21 +242,18 @@ void gpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 
 			/* Waux =  {V./(W*H)} *H' */
 			/* W = W .* Waux ./ accum_H */
-			#pragma omp task shared(Htras, WH, Waux) depend(out: Waux)
+			#pragma omp target variant dispatch use_device_ptr(WH, Htras, Waux)
 			{
-				#pragma omp target variant dispatch
-				{
-					cblas_rgemm( CblasRowMajor, CblasNoTrans, CblasNoTrans, 
-						K,				/* [m] */ 
-						N, 				/* [n] */
-						M,				/* [k] */
-						1, 				/* alfa */ 
-						Htras, K,		 	/* A[m][k], num columnas (lda) */
-						WH, M,		/* B[k][n], num columnas (ldb) */
-						0,				/* beta */ 
-						Waux, K			/* C[m][n], num columnas (ldc) */
-					);
-				}
+				cblas_rgemm( CblasRowMajor, CblasNoTrans, CblasNoTrans, 
+					N,				/* [m] */ 
+					K, 				/* [n] */
+					M,				/* [k] */
+					1, 				/* alfa */ 
+					WH, M,		 	/* A[m][k], num columnas (lda) */
+					Htras, K,		/* B[k][n], num columnas (ldb) */
+					0,				/* beta */ 
+					Waux, K			/* C[m][n], num columnas (ldc) */
+				);
 			}
 
 
