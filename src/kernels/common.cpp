@@ -66,3 +66,30 @@ void mult_M_div_vect(queue q, C_REAL *Mat, C_REAL *Maux, C_REAL *acc, int M, int
     });
     q.wait();
 }
+
+
+void accum(queue q, C_REAL *acc, C_REAL *X, int N, int M) {
+
+    // init with 0s
+    q.submit([&](handler& cgh) {
+        cgh.parallel_for<class accum_init_matrix>(range<1>(M), [=](id <1> j){
+                acc[j] = 0;
+        });
+    });
+    q.wait();
+
+    // each group accum in its memory
+    q.submit([&](auto &h) {
+        int data_size = N*M;
+        int num_work_items = M;
+        h.parallel_for(num_work_items, [=](auto index) {
+            size_t glob_id = index[0];
+            C_REAL sum = 0;
+            for (size_t i = glob_id; i < data_size; i += num_work_items)
+                sum += X[i];
+
+            acc[glob_id] = sum;
+        });
+    });
+    q.wait();
+}
