@@ -26,18 +26,31 @@ void adjust_WH(queue q, C_REAL *W, C_REAL *Ht, int N, int M, int K) {
 
 void V_div_WH(queue q, C_REAL *V, C_REAL *WH, int N, int M) {
     const int R = 1;
-    const int THREADS_SUB_SLICE = 56; //Gen 9 and Gen 11 have 56, Gen 12 has 112
-    int group_size = R * THREADS_SUB_SLICE; 
+    const int THREADS_PER_SUB_SLICE = 56; //Gen 9 and Gen 11 have 56, Gen 12 has 112
+    int GROUP_SIZE;
+
+    if(M >= THREADS_PER_SUB_SLICE)
+        GROUP_SIZE = THREADS_PER_SUB_SLICE;
+    else
+        GROUP_SIZE = M;
     //device::get_info<cl::sycl::info::device::max_work_group_size>();
 
     q.submit([&](handler& cgh) {
-        cgh.parallel_for<class V_div_WH>(nd_range(range(N, M), range(R, THREADS_SUB_SLICE)), [=](nd_item<2> item)]){
+        cgh.parallel_for<class V_div_WH>(nd_range(range(N, M), range(R, GROUP_SIZE)), [=](nd_item<2> item){
             int i = item.get_global_id(0);
             int j = item.get_global_id(1);
 
-            WH[i*M + j] = sycl::divide(V[i*M + j], WH[i*M + j]);
+            WH[i*M + j] = sycl::native::divide(V[i*M + j], WH[i*M + j]);
         });
     });
+    // q.submit([&](handler& cgh) {
+    //     cgh.parallel_for<class V_div_WH>(range<1>(N), [=](id <1> ij){
+    //         int i = ij[0];
+
+    //         for(int j = 0; j < M; j++)
+    //             WH[i*M + j] = V[i*M + j] / WH[i*M + j];
+    //     });
+    // });
     q.wait();
 }
 
