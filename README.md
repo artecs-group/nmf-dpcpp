@@ -6,7 +6,7 @@ Use these env variable to run over GPU.
 
 `export LIBOMPTARGET_PLUGIN=OPENCL`
 
-`export OMP_TARGET_OFFLOAD="MANDATORY"`
+`export OMP_TARGET_OFFLOAD=MANDATORY`
 
 
 ## Debug
