@@ -38,15 +38,6 @@ else
   CFLAGS := -std=c++11 -Wall -fsycl -D$(PDEVICE) -D$(PKERNEL) -D$(PREAL)
 endif
 
-# Intel DPC++ Compiler
-ifeq ($(CC), dpcpp)
-  # nvidia gpu is not supported in dpcpp
-  ifeq ($(PDEVICE), $(NVIDIA))
-    PDEVICE = $(IGPU)
-  endif
-  CFLAGS = -D$(PDEVICE) -D$(PKERNEL) -D$(PREAL)
-endif
-
 # Debug Flags
 ifeq ($(DEBUG),yes)
   CFLAGS += -g
@@ -61,7 +52,7 @@ nmf: nmf_LeeSeung.o \
   ./kernels/bare_kernel/bare_kernel.o \
   ./kernels/blas_kernel/blas_kernel.o \
   ./kernels/common.o
-	$(CC) $(MKL_CXXFLAGS) $(CFLAGS) nmf_LeeSeung.o \
+	$(CC) $(CFLAGS) nmf_LeeSeung.o \
     ./kernels/bare_kernel/bare_kernel.o \
     ./kernels/blas_kernel/blas_kernel.o \
     ./kernels/common.o \
@@ -91,7 +82,7 @@ nmf_LeeSeung.o: ./kernels/bare_kernel/bare_kernel.o \
 
 
 run: nmf
-	./nmf V.bin 2000 62 4 1 20
+	./nmf V.bin 2000 40 2 1 20
 
 .PHONY: clean
 clean:

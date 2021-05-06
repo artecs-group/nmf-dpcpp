@@ -1,5 +1,23 @@
 #include "./common.h"
 
+range<3> get_range_in_3d(int data_size, int max_work_group_size) {
+    int dim[3] = {1};
+
+    for(int i = 0; i < 3; i++) {
+        if(data_size <= max_work_group_size){
+            dim[i] = data_size;
+            break;
+        }
+        else
+            dim[i] = max_work_group_size;
+
+        data_size = ceil(data_size / max_work_group_size);
+    }
+
+    return range<3>(dim[0], dim[1], dim[2]);
+}
+
+
 void adjust_WH(queue q, C_REAL *W, C_REAL *Ht, int N, int M, int K) {
     q.submit([&](handler& cgh) {
         cgh.parallel_for<class check_W>(range<2>(N, K), [=](id <2> ij){
@@ -69,93 +87,69 @@ void mult_M_div_vect(queue q, C_REAL *Mat, C_REAL *Maux, C_REAL *acc, int M, int
 
 
 void accum(queue q, C_REAL *acc, C_REAL *X, int N, int M) {
-    // int data_size = N*M;
-    // int work_groups = M;
-    // int inner_work_groups = 10;
-    // int work_group_size = work_groups * inner_work_groups;
-    // int inner_work_group_size = (int) ceil(data_size / work_group_size);
-    // C_REAL *aux_acc = malloc_device<C_REAL>(inner_work_group_size, q);
+    int data_size = N*M; // X dim
+    int work_group_size = N; // acc dim
+    int inner_work_groups = M*10; // sub-reduction work groups
+    int inner_work_group_size = (int) ceil(data_size / inner_work_groups);
+    // C_REAL *aux_acc = (C_REAL*) malloc_device<C_REAL>(inner_work_group_size, q);
 
-    // q.submit([&](auto &h) {
-    //     // auto sumr = sycl::ONEAPI::reduction(aux_acc, sycl::ONEAPI::plus<>());
-    //     // h.parallel_for(sycl::nd_range<1>{data_size, inner_work_group_size}, sumr, [=](sycl::nd_item<1> item, auto &sumr_arg) {
-    //     //     int global_id = item.get_global_id(0);
-    //     //     sumr_arg += X[global_id];
-    //     // });
-    //     sycl::accessor<int, 1, sycl::access::mode::read_write, sycl::access::target::local> scratch(inner_work_group_size, h);
+    // tree_reduction(q, aux_acc, X, data_size, inner_work_group_size);
+    // q.wait();
 
-    //     h.parallel_for(sycl::nd_range<1>(data_size, inner_work_group_size), [=](sycl::nd_item<1> item) {
-    //         size_t global_id = item.get_global_id(0);
-    //         int local_id = item.get_local_id(0);
-    //         int group_id = item.get_group(0);
+    // tree_reduction(q, acc, aux_acc, inner_work_group_size, work_group_size);
+    // q.wait();
 
-    //         if (global_id < data_size)
-    //             scratch[local_id] = X[global_id];
-    //         else
-    //             scratch[local_id] = 0;
+    // free(aux_acc, q);
 
-    //         // Do a tree reduction on items in work-group
-    //         for (int i = inner_work_group_size / 2; i > 0; i >>= 1) {
-    //             item.barrier(sycl::access::fence_space::local_space);
+    tree_reduction(q, acc, X, data_size, work_group_size);
+    q.wait();
 
-    //             if (local_id < i)
-    //                 scratch[local_id] += scratch[local_id + i];
-    //         }
+    // q.submit([&](handler& cgh) {
+    //     cgh.parallel_for<class accum_add_matrix>(range<1>(M), [=](id <1> j){
 
-    //         if (local_id == 0)
-    //             aux_acc[group_id] = scratch[0];
+    //         acc[j] = 0;
+    //         for(int i = 0; i < N; i++)
+    //             acc[j] += X[i*M + j];
     //     });
     // });
     // q.wait();
+}
 
-    // q.submit([&](auto &h) {
-    //     // auto sumr = sycl::ONEAPI::reduction(acc, sycl::ONEAPI::plus<>());
-    //     // h.parallel_for(sycl::nd_range<1>{inner_work_group_size, work_group_size}, sumr, [=](sycl::nd_item<1> item, auto &sumr_arg) {
-    //     //     int global_id = item.get_global_id(0);
-    //     //     sumr_arg += aux_acc[global_id];
-    //     // });
-    //     sycl::accessor<int, 1, sycl::access::mode::read_write, sycl::access::target::local> scratch(work_group_size, h);
 
-    //     h.parallel_for(sycl::nd_range<1>(inner_work_group_size, work_group_size), [=](sycl::nd_item<1> item) {
-    //         size_t global_id = item.get_global_id(0);
-    //         int local_id = item.get_local_id(0);
-    //         int group_id = item.get_group(0);
+void tree_reduction(queue q, C_REAL *acc, C_REAL *X, int data_size, int work_group_size) {
+    q.submit([&](auto &h) {
+        // auto sumr = sycl::ONEAPI::reduction(aux_acc, sycl::ONEAPI::plus<>());
+        // h.parallel_for(sycl::nd_range<1>{data_size, inner_work_group_size}, sumr, [=](sycl::nd_item<1> item, auto &sumr_arg) {
+        //     int global_id = item.get_global_id(0);
+        //     sumr_arg += X[global_id];
+        // });
+        sycl::accessor<int, 1, sycl::access::mode::read_write, sycl::access::target::local> scratch(work_group_size, h);
+        sycl::range<3> work_group_range = get_range_in_3d(work_group_size, q.get_device().get_info<cl::sycl::info::device::max_work_group_size>());
 
-    //         if (global_id < inner_work_group_size)
-    //             scratch[local_id] = aux_acc[global_id];
-    //         else
-    //             scratch[local_id] = 0;
+        h.parallel_for(sycl::nd_range(range(data_size, 1, 1), work_group_range), [=](sycl::nd_item<3> item) {
+            int local_i = item.get_local_id(0);
+            int local_j = item.get_local_id(1);
+            int local_k = item.get_local_id(2);
 
-    //         // Do a tree reduction on items in work-group
-    //         for (int i = work_group_size / 2; i > 0; i >>= 1) {
-    //             item.barrier(sycl::access::fence_space::local_space);
+            int local_id = local_i*work_group_range.get(1) + local_j*work_group_range.get(2) + local_k;
+            size_t global_id = item.get_global_id(0);
+            int group_id = item.get_group(0);
 
-    //             if (local_id < i)
-    //                 scratch[local_id] += scratch[local_id + i];
-    //         }
+            if (global_id < data_size)
+                scratch[local_id] = X[global_id];
+            else
+                scratch[local_id] = 0;
 
-    //         if (local_id == 0)
-    //             acc[group_id] = scratch[0];
-    //     });
-    // });
+            // Do a tree reduction on items in work-group
+            for (int i = work_group_size / 2; i > 0; i >>= 1) {
+                item.barrier(sycl::access::fence_space::local_space);
 
-    //     h.parallel_for(num_work_items, [=](auto index) {
-    //         size_t glob_id = index[0];
-    //         C_REAL sum = 0;
+                if (local_id < i)
+                    scratch[local_id] += scratch[local_id + i];
+            }
 
-    //         for (size_t i = glob_id; i < data_size; i += num_work_items)
-    //             sum += X[i];
-
-    //         acc[glob_id] = sum;
-    //     });
-    // });
-    q.submit([&](handler& cgh) {
-        cgh.parallel_for<class accum_add_matrix>(range<1>(M), [=](id <1> j){
-
-            acc[j] = 0;
-            for(int i = 0; i < N; i++)
-                acc[j] += X[i*M + j];
+            if (local_id == 0)
+                acc[group_id] = scratch[0];
         });
     });
-    q.wait();
 }

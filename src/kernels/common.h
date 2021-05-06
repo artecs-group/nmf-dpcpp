@@ -70,5 +70,7 @@ void adjust_WH(queue q, C_REAL *W, C_REAL *Ht, int N, int M, int K);
 void V_div_WH(queue q, C_REAL *V, C_REAL *WH, int N, int M);
 void mult_M_div_vect(queue q, C_REAL *Mat, C_REAL *Maux, C_REAL *acc, int M, int K);
 void accum(queue q, C_REAL *acc, C_REAL *X, int N, int M);
+void tree_reduction(queue q, C_REAL *acc, C_REAL *X, int data_size, int work_group_size);
+range<3> get_range_in_3d(int data_size, int max_work_group_size);
 
 #endif
