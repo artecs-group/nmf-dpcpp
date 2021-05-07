@@ -106,8 +106,6 @@ void tree_reduction(queue q, C_REAL *acc, C_REAL *X, int N, int M) {
     q.submit([&](auto &h) {
         sycl::range<3> work_group_range = get_range_in_3d(N, q.get_device().get_info<cl::sycl::info::device::max_work_group_size>());
         int fixed_N = work_group_range.get(0) * work_group_range.get(1) * work_group_range.get(2);
-        std::cout << "N = " << fixed_N << ", M = " << M << std::endl;
-        std::cout << "g0 = " << work_group_range.get(0) << ", g1 = " << work_group_range.get(1) << ", g2 = " << work_group_range.get(2) << std::endl;
         int data_size = fixed_N * M;
         sycl::accessor<int, 1, sycl::access::mode::read_write, sycl::access::target::local> scratch(fixed_N, h);
 
@@ -120,13 +118,13 @@ void tree_reduction(queue q, C_REAL *acc, C_REAL *X, int N, int M) {
             int group_id = item.get_group(0);
             size_t global_id = (local_id + group_id) + (local_id * (M-1)); // offset
 
-            if (group_id < data_size)
+            if (global_id < N*M)
                 scratch[local_id] = X[global_id];
             else
                 scratch[local_id] = 0;
 
             // Do a tree reduction on items in work-group
-            for (int i = fixed_N / 2; i > 0; i >>= 1) {
+            for (int i = N / 2; i > 0; i >>= 1) {
                 item.barrier(sycl::access::fence_space::local_space);
 
                 if (local_id < i)
@@ -134,7 +132,8 @@ void tree_reduction(queue q, C_REAL *acc, C_REAL *X, int N, int M) {
             }
 
             if (local_id == 0 && group_id < M)
-                acc[group_id] = scratch[0];
+                                // take into account if N was odd
+                acc[group_id] = N % 2 == 0 ? scratch[0] : scratch[0] + scratch[N-1];
         });
     });
 }
