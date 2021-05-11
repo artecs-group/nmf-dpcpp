@@ -1,23 +1,5 @@
 #include "./common.h"
 
-range<3> get_range_in_3d(int data_size, int max_work_group_size) {
-    int dim[3] = { 1, 1, 1 };
-
-    for(int i = 0; i < 3; i++) {
-        if(data_size <= max_work_group_size){
-            dim[i] = data_size;
-            break;
-        }
-        else
-            dim[i] = max_work_group_size;
-
-        data_size = (data_size + max_work_group_size - 1) / max_work_group_size;
-    }
-
-    return range<3>(dim[0], dim[1], dim[2]);
-}
-
-
 void adjust_WH(queue q, C_REAL *W, C_REAL *Ht, int N, int M, int K) {
     q.submit([&](handler& cgh) {
         cgh.parallel_for<class check_W>(range<2>(N, K), [=](id <2> ij){
@@ -88,7 +70,6 @@ void mult_M_div_vect(queue q, C_REAL *Mat, C_REAL *Maux, C_REAL *acc, int M, int
 
 void accum(queue q, C_REAL *acc, C_REAL *X, int N, int M) {
     tree_reduction(q, acc, X, N, M);
-    q.wait();
 
     // q.submit([&](handler& cgh) {
     //     cgh.parallel_for<class accum_add_matrix>(range<1>(M), [=](id <1> j){
@@ -103,33 +84,44 @@ void accum(queue q, C_REAL *acc, C_REAL *X, int N, int M) {
 
 
 void tree_reduction(queue q, C_REAL *acc, C_REAL *X, int N, int M) {
-    q.submit([&](auto &h) {
-        sycl::range<3> work_group_range = get_range_in_3d(N, q.get_device().get_info<cl::sycl::info::device::max_work_group_size>());
-        int fixed_N = work_group_range.get(0) * work_group_range.get(1) * work_group_range.get(2);
-        int data_size = fixed_N * M;
-        sycl::accessor<int, 1, sycl::access::mode::read_write, sycl::access::target::local> scratch(fixed_N, h);
+    int max_work_group_size = q.get_device().get_info<cl::sycl::info::device::max_work_group_size>();
+    int fixed_N = 0;
+    
+    if(max_work_group_size < N)
+        fixed_N = (N + max_work_group_size - 1) / max_work_group_size;
+    else
+        fixed_N = N;
 
-        h.parallel_for(sycl::nd_range(range(data_size, 1, 1), work_group_range), [=](sycl::nd_item<3> item) {
-            int local_id = item.get_local_linear_id();
-            int group_id = item.get_group_linear_id();
-            size_t global_id = local_id * (M-1) + local_id + group_id; // offset
+    int data_size = fixed_N * M;
 
-            if (global_id < N*M)
-                scratch[local_id] = X[global_id];
-            else
-                scratch[local_id] = 0;
+    for(int i = 0; i < N; i+=max_work_group_size){
+        q.submit([&](auto &h) {
+            int offset = i;
+            sycl::accessor<int, 1, sycl::access::mode::read_write, sycl::access::target::local> scratch(fixed_N, h);
 
-            // Do a tree reduction on items in work-group
-            for (int i = N / 2; i > 0; i >>= 1) {
-                item.barrier(sycl::access::fence_space::local_space);
+            h.parallel_for(sycl::nd_range(range(data_size), range(fixed_N)), [=](sycl::nd_item<1> item) {
+                int local_id = item.get_local_linear_id();
+                int group_id = item.get_group_linear_id();
+                size_t global_id = local_id * (M-1) + local_id + group_id + offset;
 
-                if (local_id < i)
-                    scratch[local_id] += scratch[local_id + i];
-            }
+                if (global_id < N*M)
+                    scratch[local_id] = X[global_id];
+                else
+                    scratch[local_id] = 0;
 
-            if (local_id == 0 && group_id < M)
-                                // take into account if N was odd
-                acc[group_id] = N % 2 == 0 ? scratch[0] : scratch[0] + scratch[N-1];
+                // Do a tree reduction on items in work-group
+                for (int i = N / 2; i > 0; i >>= 1) {
+                    item.barrier(sycl::access::fence_space::local_space);
+
+                    if (local_id < i)
+                        scratch[local_id] += scratch[local_id + i];
+                }
+
+                if (local_id == 0 && group_id < M)
+                                    // take into account if N was odd
+                    acc[group_id] = N % 2 == 0 ? scratch[0] : scratch[0] + scratch[N-1];
+            });
         });
-    });
+        q.wait();
+    }
 }
