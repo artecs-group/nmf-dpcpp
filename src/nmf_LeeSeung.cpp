@@ -276,31 +276,8 @@ void nmf(int niter, queue q, C_REAL *V, C_REAL *WH,
     }
 }
 
-int main(int argc, char *argv[]) { 
-	sycl::queue q{cpu_selector{}};
-	std::cout << "Running on "
-				<< q.get_device().get_info<sycl::info::device::name>()
-				<< std::endl;
 
-	const int N = 5;
-	const int K = 4;
-	C_REAL acc[K] = {0};
-	C_REAL W[N*K] = {1, 1, 1, 1,
-					 2, 2, 2, 2,
-					 3, 3, 3, 3,
-					 4, 4, 4, 4,
-					 5, 5, 5, 5};
-	printMATRIX(W, N, K);
-
-	accum(q, acc, W, N, K);
-
-	printMATRIX(acc, 1, K);
-
-	return 0;
-}
-
-
-int main2(int argc, char *argv[]) {
+int main(int argc, char *argv[]) {
 	int niters;
 
 	C_REAL *V, *WH, *W, *Htras, *Haux, *Waux, *acumm_W, *acumm_H;
@@ -350,8 +327,6 @@ int main2(int argc, char *argv[]) {
 				<< std::endl;
 
 	V                 = get_V(N, M, file_name, q);
-	//q.mem_advise(V, N*M, 0); // mark it as read only memory. Still not available
-
 	W                 = malloc_shared<C_REAL>(N * K, q);
 	Htras             = malloc_shared<C_REAL>(M * K, q);
 	WH                = malloc_device<C_REAL>(N * M, q);
