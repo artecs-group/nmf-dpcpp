@@ -69,6 +69,16 @@ void mult_M_div_vect(queue q, C_REAL *Mat, C_REAL *Maux, C_REAL *acc, int M, int
 
 
 void accum(queue q, C_REAL *acc, C_REAL *X, int N, int M) {
+    // q.submit([&](handler& cgh) {
+    //     cgh.parallel_for<class accum_add_matrix>(range<1>(M), [=](id <1> j){
+
+    //         acc[j] = 0;
+    //         for(int i = 0; i < N; i++)
+    //             acc[j] += X[i*M + j];
+    //     });
+    // });
+    // q.wait();
+
     // init acc
     q.submit([&](auto &h) {
         h.parallel_for(sycl::nd_range(range(M), range(1)), [=](sycl::nd_item<1> item) {
@@ -99,7 +109,7 @@ void accum(queue q, C_REAL *acc, C_REAL *X, int N, int M) {
                     scratch[local_id] = 0;
 
                 // Do a tree reduction on items in work-group
-                for (int i = N / 2; i > 0; i >>= 1) {
+                for (int i = fixed_N / 2; i > 0; i >>= 1) {
                     item.barrier(sycl::access::fence_space::local_space);
 
                     if (local_id < i)
@@ -108,7 +118,7 @@ void accum(queue q, C_REAL *acc, C_REAL *X, int N, int M) {
 
                 if (local_id == 0)
                                     // take into account if N was odd
-                    acc[group_id] += N % 2 == 0 ? scratch[0] : scratch[0] + scratch[N-1];
+                    acc[group_id] += fixed_N % 2 == 0 ? scratch[0] : scratch[0] + scratch[fixed_N-1];
             });
         });
         q.wait();
