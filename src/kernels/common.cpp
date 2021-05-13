@@ -82,7 +82,7 @@ void accum(queue q, C_REAL *acc, C_REAL *X, int N, int M) {
     });
     q.wait();
     
-    int max_work_group_size = 2;//q.get_device().get_info<cl::sycl::info::device::max_work_group_size>();
+    int max_work_group_size = q.get_device().get_info<cl::sycl::info::device::max_work_group_size>();
     int fixed_N = max_work_group_size < N ? max_work_group_size : N;
     int data_size = fixed_N * M;
     int j = 0;
@@ -120,4 +120,60 @@ void accum(queue q, C_REAL *acc, C_REAL *X, int N, int M) {
         q.wait();
         j++;
     }
+}
+
+
+void accum2(queue q, C_REAL *acc, C_REAL *X, int N, int M) {
+    // init acc
+    q.submit([&](auto &h) {
+        h.parallel_for(sycl::range<1>(M), [=](id <1> i) {
+            acc[i] = 0;
+        });
+    });
+    q.wait();
+    
+    int max_work_group_size = q.get_device().get_info<cl::sycl::info::device::max_work_group_size>();
+    int fixed_N = max_work_group_size < N ? max_work_group_size : N;
+    int data_size = fixed_N * M;
+
+    q.submit([&](auto &h) {
+        sycl::accessor<C_REAL, 1, sycl::access::mode::read_write, sycl::access::target::local> scratch(fixed_N, h);
+
+        h.parallel_for(sycl::nd_range(range(data_size), range(fixed_N)), [=](sycl::nd_item<1> item) {
+            int local_id = item.get_local_id(0);
+            int group_id = item.get_group(0);
+            int blocks = 0;
+            int offset;
+            int global_id = local_id * (M-1) + local_id + group_id;
+            int global_id_offset;
+
+            for(int i = 0; i < N; i+=fixed_N){
+                offset = data_size * blocks;
+                global_id_offset = global_id + offset;
+
+                // TODO: add padding to X in order to remove if-then-else
+                if (global_id_offset < N*M)
+                    scratch[local_id] = X[global_id_offset];
+                else
+                    scratch[local_id] = 0;
+
+                // Do a tree reduction on items in work-group
+                for (int j = fixed_N / 2; j > 0; j >>= 1) {
+                    item.barrier(sycl::access::fence_space::local_space);
+
+                    if (local_id < j)
+                        scratch[local_id] += scratch[local_id + j];
+                }
+
+                if (local_id == 0)
+                    // take into account if N was odd
+                    // TODO: add padding to scratch in order to remove if-then-else
+                    acc[group_id] += fixed_N % 2 == 0 ? scratch[0] : scratch[0] + scratch[fixed_N-1];
+                
+                blocks++;
+                item.barrier(sycl::access::fence_space::local_space);
+            }
+        });
+    });
+    q.wait();
 }
