@@ -81,14 +81,13 @@ void accum(queue q, C_REAL *acc, C_REAL *X, int N, int M) {
 
     // init acc
     q.submit([&](auto &h) {
-        h.parallel_for(sycl::nd_range(range(M), range(1)), [=](sycl::nd_item<1> item) {
-            int global_id = item.get_global_id(0);
-            acc[global_id] = 0;
+        h.parallel_for(sycl::range<1>(M), [=](id <1> i) {
+            acc[i] = 0;
         });
     });
     q.wait();
     
-    int max_work_group_size = q.get_device().get_info<cl::sycl::info::device::max_work_group_size>();
+    int max_work_group_size = 3;//q.get_device().get_info<cl::sycl::info::device::max_work_group_size>();
     int fixed_N = max_work_group_size < N ? max_work_group_size : N;
     int data_size = fixed_N * M;
     int j = 0;
@@ -96,13 +95,14 @@ void accum(queue q, C_REAL *acc, C_REAL *X, int N, int M) {
     for(int i = 0; i < N; i+=fixed_N){
         q.submit([&](auto &h) {
             int offset = data_size*j;
-            sycl::accessor<int, 1, sycl::access::mode::read_write, sycl::access::target::local> scratch(fixed_N, h);
+            sycl::accessor<C_REAL, 1, sycl::access::mode::read_write, sycl::access::target::local> scratch(fixed_N, h);
 
             h.parallel_for(sycl::nd_range(range(data_size), range(fixed_N)), [=](sycl::nd_item<1> item) {
                 int local_id = item.get_local_id(0);
                 int group_id = item.get_group(0);
                 size_t global_id = local_id * (M-1) + local_id + group_id + offset;
 
+                // TODO: add padding to X in order to remove if-then-else
                 if (global_id < N*M)
                     scratch[local_id] = X[global_id];
                 else
@@ -117,7 +117,8 @@ void accum(queue q, C_REAL *acc, C_REAL *X, int N, int M) {
                 }
 
                 if (local_id == 0)
-                                    // take into account if N was odd
+                    // take into account if N was odd
+                    // TODO: add padding to scratch in order to remove if-then-else
                     acc[group_id] += fixed_N % 2 == 0 ? scratch[0] : scratch[0] + scratch[fixed_N-1];
             });
         });
