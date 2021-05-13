@@ -25,22 +25,17 @@ void adjust_WH(queue q, C_REAL *W, C_REAL *Ht, int N, int M, int K) {
 
 
 void V_div_WH(queue q, C_REAL *V, C_REAL *WH, int N, int M) {
-    const int R = 2;
-    const int THREADS_PER_SUB_SLICE = 56; //Gen 9 and Gen 11 have 56, Gen 12 has 112
-    int GROUP_SIZE;
-
-    if(M >= THREADS_PER_SUB_SLICE)
-        GROUP_SIZE = THREADS_PER_SUB_SLICE;
-    else
-        GROUP_SIZE = M;
-    //device::get_info<cl::sycl::info::device::max_work_group_size>();
+    int max_work_group_size = q.get_device().get_info<cl::sycl::info::device::max_work_group_size>();
+    int GROUP_SIZE = max_work_group_size < N ? max_work_group_size : N;
+    // adjust work-groups number 
+    int remainder = (N == GROUP_SIZE) ? 0 : GROUP_SIZE - (N % GROUP_SIZE);
 
     q.submit([&](handler& cgh) {
-        cgh.parallel_for<class V_div_WH>(nd_range(range(N, M), range(R, GROUP_SIZE)), [=](nd_item<2> item){
+        cgh.parallel_for<class V_div_WH>(nd_range(range((N+remainder) * M), range(GROUP_SIZE)), [=](nd_item<1> item){
             int i = item.get_global_id(0);
-            int j = item.get_global_id(1);
-
-            WH[i*M + j] = sycl::native::divide(V[i*M + j], WH[i*M + j]);
+            // TODO: add offset to WH and V to remove if-then-else
+            if(i < N*M)
+                WH[i] = sycl::native::divide(V[i], WH[i]);
         });
     });
     // q.submit([&](handler& cgh) {
@@ -87,7 +82,7 @@ void accum(queue q, C_REAL *acc, C_REAL *X, int N, int M) {
     });
     q.wait();
     
-    int max_work_group_size = 3;//q.get_device().get_info<cl::sycl::info::device::max_work_group_size>();
+    int max_work_group_size = 2;//q.get_device().get_info<cl::sycl::info::device::max_work_group_size>();
     int fixed_N = max_work_group_size < N ? max_work_group_size : N;
     int data_size = fixed_N * M;
     int j = 0;
