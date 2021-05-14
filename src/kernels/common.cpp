@@ -24,7 +24,7 @@ void adjust_WH(queue q, C_REAL *W, C_REAL *Ht, int N, int M, int K) {
 }
 
 
-void V_div_WH(queue q, C_REAL *V, C_REAL *WH, int N, int M) {
+void V_div_WH3(queue q, C_REAL *V, C_REAL *WH, int N, int M) {
     int max_work_group_size = q.get_device().get_info<cl::sycl::info::device::max_work_group_size>();
     int GROUP_SIZE = max_work_group_size < N ? max_work_group_size : N;
     // adjust work-groups number 
@@ -38,14 +38,41 @@ void V_div_WH(queue q, C_REAL *V, C_REAL *WH, int N, int M) {
                 WH[i] = sycl::native::divide(V[i], WH[i]);
         });
     });
-    // q.submit([&](handler& cgh) {
-    //     cgh.parallel_for<class V_div_WH>(range<1>(N), [=](id <1> ij){
-    //         int i = ij[0];
+    q.wait();
+}
 
-    //         for(int j = 0; j < M; j++)
-    //             WH[i*M + j] = V[i*M + j] / WH[i*M + j];
-    //     });
-    // });
+
+void V_div_WH2(queue q, C_REAL *V, C_REAL *WH, int N, int M) {
+    const int R = 1;
+    const int THREADS_PER_SUB_SLICE = 56; //Gen 9 and Gen 11 have 56, Gen 12 has 112
+    int GROUP_SIZE;
+
+    if(M >= THREADS_PER_SUB_SLICE)
+        GROUP_SIZE = THREADS_PER_SUB_SLICE;
+    else
+        GROUP_SIZE = M;
+
+    q.submit([&](handler& cgh) {
+        cgh.parallel_for<class V_div_WH>(nd_range(range(N, M), range(R, GROUP_SIZE)), [=](nd_item<2> item){
+            int i = item.get_global_id(0);
+            int j = item.get_global_id(1);
+
+            WH[i*M + j] = sycl::native::divide(V[i*M + j], WH[i*M + j]);
+        });
+    });
+    q.wait();
+}
+
+
+void V_div_WH(queue q, C_REAL *V, C_REAL *WH, int N, int M) {
+    q.submit([&](handler& cgh) {
+        cgh.parallel_for<class V_div_WH>(range<1>(N), [=](id <1> ij){
+            int i = ij[0];
+
+            for(int j = 0; j < M; j++)
+                WH[i*M + j] = V[i*M + j] / WH[i*M + j];
+        });
+    });
     q.wait();
 }
 
@@ -63,17 +90,7 @@ void mult_M_div_vect(queue q, C_REAL *Mat, C_REAL *Maux, C_REAL *acc, int M, int
 }
 
 
-void accum(queue q, C_REAL *acc, C_REAL *X, int N, int M) {
-    // q.submit([&](handler& cgh) {
-    //     cgh.parallel_for<class accum_add_matrix>(range<1>(M), [=](id <1> j){
-
-    //         acc[j] = 0;
-    //         for(int i = 0; i < N; i++)
-    //             acc[j] += X[i*M + j];
-    //     });
-    // });
-    // q.wait();
-
+void accum2(queue q, C_REAL *acc, C_REAL *X, int N, int M) {
     // init acc
     q.submit([&](auto &h) {
         h.parallel_for(sycl::range<1>(M), [=](id <1> i) {
@@ -123,7 +140,7 @@ void accum(queue q, C_REAL *acc, C_REAL *X, int N, int M) {
 }
 
 
-void accum2(queue q, C_REAL *acc, C_REAL *X, int N, int M) {
+void accum3(queue q, C_REAL *acc, C_REAL *X, int N, int M) {
     // init acc
     q.submit([&](auto &h) {
         h.parallel_for(sycl::range<1>(M), [=](id <1> i) {
@@ -173,6 +190,19 @@ void accum2(queue q, C_REAL *acc, C_REAL *X, int N, int M) {
                 blocks++;
                 item.barrier(sycl::access::fence_space::local_space);
             }
+        });
+    });
+    q.wait();
+}
+
+
+void accum(queue q, C_REAL *acc, C_REAL *X, int N, int M) { 
+    q.submit([&](handler& cgh) {
+        cgh.parallel_for<class accum_add_matrix>(range<1>(M), [=](id <1> j){
+
+            acc[j] = 0;
+            for(int i = 0; i < N; i++)
+                acc[j] += X[i*M + j];
         });
     });
     q.wait();

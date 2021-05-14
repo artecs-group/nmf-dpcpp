@@ -82,7 +82,7 @@ nmf_LeeSeung.o: ./kernels/bare_kernel/bare_kernel.o \
 
 
 run: nmf
-	./nmf V.bin 2000 40 2 1 20
+	./nmf V.bin 5000 38 2 1 20
 
 .PHONY: clean
 clean:
