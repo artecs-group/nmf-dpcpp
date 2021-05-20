@@ -24,7 +24,7 @@ void adjust_WH(queue q, C_REAL *W, C_REAL *Ht, int N, int M, int K) {
 }
 
 
-void V_div_WH3(queue q, C_REAL *V, C_REAL *WH, int N, int M) {
+void V_div_WH(queue q, C_REAL *V, C_REAL *WH, int N, int M) {
     int max_work_group_size = q.get_device().get_info<cl::sycl::info::device::max_work_group_size>();
     int GROUP_SIZE = max_work_group_size < N ? max_work_group_size : N;
     // adjust work-groups number 
@@ -64,7 +64,7 @@ void V_div_WH2(queue q, C_REAL *V, C_REAL *WH, int N, int M) {
 }
 
 
-void V_div_WH(queue q, C_REAL *V, C_REAL *WH, int N, int M) {
+void V_div_WH3(queue q, C_REAL *V, C_REAL *WH, int N, int M) {
     q.submit([&](handler& cgh) {
         cgh.parallel_for<class V_div_WH>(range<1>(N), [=](id <1> ij){
             int i = ij[0];
