@@ -140,7 +140,7 @@ void accum2(queue q, C_REAL *acc, C_REAL *X, int N, int M) {
 }
 
 
-void accum3(queue q, C_REAL *acc, C_REAL *X, int N, int M) {
+void accum(queue q, C_REAL *acc, C_REAL *X, int N, int M) {
     // init acc
     q.submit([&](auto &h) {
         h.parallel_for(sycl::range<1>(M), [=](id <1> i) {
@@ -168,11 +168,7 @@ void accum3(queue q, C_REAL *acc, C_REAL *X, int N, int M) {
                 offset = data_size * blocks;
                 global_id_offset = global_id + offset;
 
-                // TODO: add padding to X in order to remove if-then-else
-                if (global_id_offset < N*M)
-                    scratch[local_id] = X[global_id_offset];
-                else
-                    scratch[local_id] = 0;
+                scratch[local_id] = X[global_id_offset];
 
                 // Do a tree reduction on items in work-group
                 for (int j = fixed_N / 2; j > 0; j >>= 1) {
@@ -183,9 +179,7 @@ void accum3(queue q, C_REAL *acc, C_REAL *X, int N, int M) {
                 }
 
                 if (local_id == 0)
-                    // take into account if N was odd
-                    // TODO: add padding to scratch in order to remove if-then-else
-                    acc[group_id] += fixed_N % 2 == 0 ? scratch[0] : scratch[0] + scratch[fixed_N-1];
+                    acc[group_id] += scratch[0];
                 
                 blocks++;
                 item.barrier(sycl::access::fence_space::local_space);
@@ -196,7 +190,7 @@ void accum3(queue q, C_REAL *acc, C_REAL *X, int N, int M) {
 }
 
 
-void accum(queue q, C_REAL *acc, C_REAL *X, int N, int M) { 
+void accum3(queue q, C_REAL *acc, C_REAL *X, int N, int M) { 
     q.submit([&](handler& cgh) {
         cgh.parallel_for<class accum_add_matrix>(range<1>(M), [=](id <1> j){
 

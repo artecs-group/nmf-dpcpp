@@ -8,6 +8,18 @@
 #include "./kernels/bare_kernel/bare_kernel.h" //default kernels
 #endif
 
+
+inline int pow2roundup(int x) {
+    --x;
+    x |= x >> 1;
+    x |= x >> 2;
+    x |= x >> 4;
+    x |= x >> 8;
+    x |= x >> 16;
+    return x+1;
+}
+
+
 double gettime() {
 	double final_time;
 	struct timeval tv1;
@@ -32,7 +44,7 @@ void matrix_copy2D(C_REAL *in, C_REAL *out, int nx, int ny) {
 }
 
 
-void initWH(C_REAL *W, C_REAL *Htras, int N, int M, int K) {	
+void initWH(C_REAL *W, C_REAL *Htras, int N, int M, int K, int N_pad, int M_pad) {	
 	// int seedi;
 	// FILE *fd;
 
@@ -65,6 +77,12 @@ void initWH(C_REAL *W, C_REAL *Htras, int N, int M, int K) {
 	fread(Htras, sizeof(C_REAL), size_H, fIn);
 	fclose(fIn);
 #endif
+
+	for (int i = N*K; i < N_pad*K; i++)
+		W[i] = 0;
+
+	for (int i = M*K; i < M_pad*K; i++)
+		Htras[i] = 0;
 }
 
 
@@ -247,7 +265,7 @@ void writeSolution(C_REAL *W, C_REAL*Ht, unsigned char *consensus, int N, int M,
 
 void nmf(int niter, queue q, C_REAL *V, C_REAL *WH, 
 	C_REAL *W, C_REAL *Htras, C_REAL *Waux, C_REAL *Haux,
-	C_REAL *accW, C_REAL *accH, int N, int M, int K)
+	C_REAL *accW, C_REAL *accH, int N, int M, int K, int N_pad, int M_pad)
 {
 	/*************************************/
 	/*                                   */
@@ -261,7 +279,7 @@ void nmf(int niter, queue q, C_REAL *V, C_REAL *WH,
 
         W_mult_H(q, WH, W, Htras, N, M, K);	/* WH = W*H */
         V_div_WH(q, V, WH, N, M);			/* WH = (V./(W*H) */
-        accum(q, accW, W, N, K); 		/* Shrink into one column */
+        accum(q, accW, W, N_pad, K); 		/* Shrink into one column */
         Wt_mult_WH(q, Haux, W, WH, N, M, K);	/* Haux = (W'* {V./(WH)} */
         mult_M_div_vect(q, Htras, Haux, accW, M, K);/* H = H .* (Haux) ./ accum_W */
 
@@ -271,9 +289,44 @@ void nmf(int niter, queue q, C_REAL *V, C_REAL *WH,
         W_mult_H(q, WH, W, Htras, N, M, K);	/* WH = W*H */
         V_div_WH(q, V, WH, N, M );			/* WH = (V./(W*H) */
         WH_mult_Ht(q, Waux, WH, Htras, N, M, K);/* Waux =  {V./(W*H)} *H' */
-        accum(q, accH, Htras, M, K);		/* Shrink into one column */
+        accum(q, accH, Htras, M_pad, K);		/* Shrink into one column */
         mult_M_div_vect(q, W, Waux, accH, N, K);/* W = W .* Waux ./ accum_H */
     }
+}
+
+
+int main2(int argc, char *argv[]) { 
+	sycl::queue q{cpu_selector{}};
+	std::cout << "Running on "
+				<< q.get_device().get_info<sycl::info::device::name>()
+				<< std::endl;
+
+	const int N = 7;
+	const int N_pad = pow2roundup(N);
+	const int K = 4;
+	C_REAL *acc = malloc_shared<C_REAL>(K, q);
+	C_REAL *W = malloc_shared<C_REAL>(N_pad*K, q);
+	C_REAL W_aux[N*K] = {0.1, 1, 1, 1,
+					     0.2, 2, 2, 2,
+					     0.3, 3, 3, 3,
+					     0.4, 4, 4, 4,
+					     0.5, 5, 5, 5,
+						 0.6, 6, 6, 6,
+						 0.7, 7, 7, 7};
+	
+	for(int i = 0; i < N*K; i++)
+		W[i] = W_aux[i];
+
+	for(int i = N*K; i < N_pad*K; i++)
+		W[i] = 0;
+
+	printMATRIX(W, N_pad, K);
+
+	accum(q, acc, W, N_pad, K);
+
+	printMATRIX(acc, 1, K);
+
+	return 0;
 }
 
 
@@ -304,7 +357,9 @@ int main(int argc, char *argv[]) {
 
 	strcpy(file_name, argv[1]);
 	int N              = atoi(argv[2]);
+	int N_pad          = pow2roundup(N);
 	int M              = atoi(argv[3]);
+	int M_pad          = pow2roundup(M);
 	int K              = atoi(argv[4]);
 	int nTests         = atoi(argv[5]);
 	int stop_threshold = atoi(argv[6]);
@@ -327,8 +382,8 @@ int main(int argc, char *argv[]) {
 				<< std::endl;
 
 	V                 = get_V(N, M, file_name, q);
-	W                 = malloc_shared<C_REAL>(N * K, q);
-	Htras             = malloc_shared<C_REAL>(M * K, q);
+	W                 = malloc_shared<C_REAL>(N_pad * K, q);
+	Htras             = malloc_shared<C_REAL>(M_pad * K, q);
 	WH                = malloc_device<C_REAL>(N * M, q);
 	Haux              = malloc_device<C_REAL>(M * K, q);
 	Waux              = malloc_device<C_REAL>(N * K, q);
@@ -348,7 +403,7 @@ int main(int argc, char *argv[]) {
 
 	for(int test = 0; test < nTests; test++) {
 		/* Init W and H */
-		initWH(W, Htras, N, M, K);
+		initWH(W, Htras, N, M, K, N_pad, M_pad);
 
 		niters = 2000 / NITER_TEST_CONV;
 
@@ -361,7 +416,7 @@ int main(int argc, char *argv[]) {
 			/* Main Proccess of NMF Brunet */
 			nmf(NITER_TEST_CONV, q, V, WH, W, 
 				Htras, Waux, Haux, acumm_W, acumm_H,
-				N, M, K);
+				N, M, K, N_pad, M_pad);
 
 			/* Adjust small values to avoid undeflow: h=max(h,eps);w=max(w,eps); */
 			adjust_WH(q, W, Htras, N, M, K);
