@@ -55,13 +55,11 @@ void initWH(C_REAL *W, C_REAL *Htras, int N, int M, int K, int N_pad, int M_pad)
 	// srand(seedi);
 	srand(0);
 
-	for (int i = 0; i < N; i++)
-		for (int j = 0; j < K; j++)
-			W[i*K + j] = ((C_REAL)(rand()))/RAND_MAX;
+	for (int i = 0; i < N*K; i++)
+		W[i] = ((C_REAL)(rand()))/RAND_MAX;
 
-	for (int i = 0; i < M; i++)
-        for (int j = 0; j < K; j++)
-			Htras[i*K + j] = ((C_REAL)(rand()))/RAND_MAX;
+	for (int i = 0; i < M*K; i++)
+		Htras[i] = ((C_REAL)(rand()))/RAND_MAX;
 
 #ifdef DEBUG
 	/* Added to debug */
@@ -78,11 +76,8 @@ void initWH(C_REAL *W, C_REAL *Htras, int N, int M, int K, int N_pad, int M_pad)
 	fclose(fIn);
 #endif
 
-	for (int i = N*K; i < N_pad*K; i++)
-		W[i] = 0;
-
-	for (int i = M*K; i < M_pad*K; i++)
-		Htras[i] = 0;
+	std::fill(W + (N*K), W + (N_pad*K), 0);
+	std::fill(Htras + (M*K), Htras + (M_pad*K), 0);
 }
 
 
@@ -135,8 +130,8 @@ void print_WH(C_REAL *W, C_REAL *Htras, int N, int M, int K) {
 }
 
 
-C_REAL *get_V(int N, int M, char* file_name, queue &q) {
-	C_REAL *V = malloc_shared<C_REAL>(N * M, q);
+C_REAL *get_V(int N, int M, int N_pad, char* file_name) {
+	C_REAL *V = new C_REAL[N_pad * M];
 
 #ifndef RANDOM
 	FILE *fIn = fopen(file_name, "r");
@@ -151,10 +146,11 @@ C_REAL *get_V(int N, int M, char* file_name, queue &q) {
     // fclose (fd);
     srand( 0 );
 
-    for (int i = 0; i < N; i++)
-        for (int j = 0; j < M; j++)
-            V[i*M + j] = ((C_REAL)(rand()))/RAND_MAX;
+    for (int i = 0; i < N*M; i++)
+        V[i] = ((C_REAL)(rand()))/RAND_MAX;
 #endif
+
+	std::fill(V + (N*M), V + (N_pad*M), 1);
 	return V;
 }
 
@@ -287,7 +283,7 @@ void nmf(int niter, queue q, C_REAL *V, C_REAL *WH,
 		/*** W = W .* ((V./(W*H))*H') ./ accum_H ***/
 		/*******************************************/
         W_mult_H(q, WH, W, Htras, N, M, K);	/* WH = W*H */
-        V_div_WH(q, V, WH, N, M );			/* WH = (V./(W*H) */
+        V_div_WH(q, V, WH, N, M);			/* WH = (V./(W*H) */
         WH_mult_Ht(q, Waux, WH, Htras, N, M, K);/* Waux =  {V./(W*H)} *H' */
         accum(q, accH, Htras, M_pad, K);		/* Shrink into one column */
         mult_M_div_vect(q, W, Waux, accH, N, K);/* W = W .* Waux ./ accum_H */
@@ -333,7 +329,7 @@ int main2(int argc, char *argv[]) {
 int main(int argc, char *argv[]) {
 	int niters;
 
-	C_REAL *V, *WH, *W, *Htras, *Haux, *Waux, *acumm_W, *acumm_H;
+	C_REAL *V, *V_host, *WH, *W, *Htras, *Haux, *Waux, *acumm_W, *acumm_H;
 	C_REAL *W_best, *Htras_best;
 	unsigned char *classification, *last_classification;
 	unsigned char *consensus;
@@ -381,10 +377,15 @@ int main(int argc, char *argv[]) {
 				<< q.get_device().get_info<sycl::info::device::name>()
 				<< std::endl;
 
-	V                 = get_V(N, M, file_name, q);
+	V_host            = get_V(N, M, N_pad, file_name);
+	V                 = malloc_device<C_REAL>(N_pad * M, q);
+	copy_to_device(q, V, V_host, N_pad, M);
+
 	W                 = malloc_shared<C_REAL>(N_pad * K, q);
 	Htras             = malloc_shared<C_REAL>(M_pad * K, q);
-	WH                = malloc_device<C_REAL>(N * M, q);
+	WH                = malloc_device<C_REAL>(N_pad * M, q);
+	init_vector(q, WH, N_pad, M, 1.0);
+
 	Haux              = malloc_device<C_REAL>(M * K, q);
 	Waux              = malloc_device<C_REAL>(N * K, q);
 	acumm_W           = malloc_device<C_REAL>(K, q);
@@ -444,7 +445,7 @@ int main(int argc, char *argv[]) {
 		get_consensus(classification, consensus, M);
 
 		/* Get variance of the method error = |V-W*H| */
-		error = get_Error(V, W, Htras, N, M, K);
+		error = get_Error(V_host, W, Htras, N, M, K);
 		if (error < error_old) {
 			printf("Better W and H, Error %e Test=%i, Iter=%i\n", error, test, iter);
 			matrix_copy2D(W, W_best, N, K);
@@ -478,6 +479,7 @@ int main(int argc, char *argv[]) {
 	free(classification, q);
 	free(last_classification, q);
 	free(consensus, q);
+	delete[] V_host;
 
 	return 0;
 }

@@ -69,5 +69,7 @@ void adjust_WH(queue q, C_REAL *W, C_REAL *Ht, int N, int M, int K);
 void V_div_WH(queue q, C_REAL *V, C_REAL *WH, int N, int M);
 void mult_M_div_vect(queue q, C_REAL *Mat, C_REAL *Maux, C_REAL *acc, int M, int K);
 void accum(queue q, C_REAL *acc, C_REAL *X, int N, int M);
+void copy_to_device(queue q, C_REAL *dev, C_REAL *host, int N, int M);
+void init_vector(queue q, C_REAL *vec, int N, int M, C_REAL init_val);
 
 #endif
