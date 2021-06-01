@@ -130,8 +130,8 @@ void print_WH(C_REAL *W, C_REAL *Htras, int N, int M, int K) {
 }
 
 
-C_REAL *get_V(int N, int M, int N_pad, char* file_name) {
-	C_REAL *V = new C_REAL[N_pad * M];
+C_REAL *get_V(int N, int M, char* file_name, queue q) {
+	C_REAL *V = malloc_shared<C_REAL>(N * M, q);
 
 #ifndef RANDOM
 	FILE *fIn = fopen(file_name, "r");
@@ -150,7 +150,6 @@ C_REAL *get_V(int N, int M, int N_pad, char* file_name) {
         V[i] = ((C_REAL)(rand()))/RAND_MAX;
 #endif
 
-	std::fill(V + (N*M), V + (N_pad*M), 1);
 	return V;
 }
 
@@ -291,45 +290,10 @@ void nmf(int niter, queue q, C_REAL *V, C_REAL *WH,
 }
 
 
-int main2(int argc, char *argv[]) { 
-	sycl::queue q{cpu_selector{}};
-	std::cout << "Running on "
-				<< q.get_device().get_info<sycl::info::device::name>()
-				<< std::endl;
-
-	const int N = 7;
-	const int N_pad = pow2roundup(N);
-	const int K = 4;
-	C_REAL *acc = malloc_shared<C_REAL>(K, q);
-	C_REAL *W = malloc_shared<C_REAL>(N_pad*K, q);
-	C_REAL W_aux[N*K] = {0.1, 1, 1, 1,
-					     0.2, 2, 2, 2,
-					     0.3, 3, 3, 3,
-					     0.4, 4, 4, 4,
-					     0.5, 5, 5, 5,
-						 0.6, 6, 6, 6,
-						 0.7, 7, 7, 7};
-	
-	for(int i = 0; i < N*K; i++)
-		W[i] = W_aux[i];
-
-	for(int i = N*K; i < N_pad*K; i++)
-		W[i] = 0;
-
-	printMATRIX(W, N_pad, K);
-
-	accum(q, acc, W, N_pad, K);
-
-	printMATRIX(acc, 1, K);
-
-	return 0;
-}
-
-
 int main(int argc, char *argv[]) {
 	int niters;
 
-	C_REAL *V, *V_host, *WH, *W, *Htras, *Haux, *Waux, *acumm_W, *acumm_H;
+	C_REAL *V, *WH, *W, *Htras, *Haux, *Waux, *acumm_W, *acumm_H;
 	C_REAL *W_best, *Htras_best;
 	unsigned char *classification, *last_classification;
 	unsigned char *consensus;
@@ -363,7 +327,7 @@ int main(int argc, char *argv[]) {
     printf("file=%s\nN=%i M=%i K=%i nTests=%i stop_threshold=%i\n", file_name, N, M, K, nTests, stop_threshold);
 
 #if defined(INTEL_IGPU_DEVICE)
-	NEOGPUDeviceSelector selector{};
+	IntelGPUSelector selector{};
 #elif defined(NVIDIA_DEVICE)
 	CUDASelector selector{};
 #elif defined(CPU_DEVICE)	
@@ -373,18 +337,12 @@ int main(int argc, char *argv[]) {
 #endif
 
 	sycl::queue q{selector};
-	std::cout << "Running on "
-				<< q.get_device().get_info<sycl::info::device::name>()
-				<< std::endl;
+	std::cout << "Running on " << q.get_device().get_info<sycl::info::device::name>() << std::endl;
 
-	V_host            = get_V(N, M, N_pad, file_name);
-	V                 = malloc_device<C_REAL>(N_pad * M, q);
-	copy_to_device(q, V, V_host, N_pad, M);
-
+	V            	  = get_V(N, M, file_name, q);
 	W                 = malloc_shared<C_REAL>(N_pad * K, q);
 	Htras             = malloc_shared<C_REAL>(M_pad * K, q);
-	WH                = malloc_device<C_REAL>(N_pad * M, q);
-	init_vector(q, WH, N_pad, M, 1.0);
+	WH                = malloc_device<C_REAL>(N * M, q);
 
 	Haux              = malloc_device<C_REAL>(M * K, q);
 	Waux              = malloc_device<C_REAL>(N * K, q);
@@ -445,7 +403,7 @@ int main(int argc, char *argv[]) {
 		get_consensus(classification, consensus, M);
 
 		/* Get variance of the method error = |V-W*H| */
-		error = get_Error(V_host, W, Htras, N, M, K);
+		error = get_Error(V, W, Htras, N, M, K);
 		if (error < error_old) {
 			printf("Better W and H, Error %e Test=%i, Iter=%i\n", error, test, iter);
 			matrix_copy2D(W, W_best, N, K);
@@ -479,7 +437,6 @@ int main(int argc, char *argv[]) {
 	free(classification, q);
 	free(last_classification, q);
 	free(consensus, q);
-	delete[] V_host;
 
 	return 0;
 }

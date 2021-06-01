@@ -14,25 +14,21 @@ class CUDASelector : public device_selector {
         int operator()(const device &Device) const override {
             const std::string DriverVersion = Device.get_info<info::device::driver_version>();
 
-            if (Device.is_gpu() && (DriverVersion.find("CUDA") != std::string::npos)) {
-                std::cout << std::endl << "Running on  CUDA GPU" << std::endl << std::endl;
+            if (Device.is_gpu() && (DriverVersion.find("CUDA") != std::string::npos))
                 return 1;
-            }
 
             return 0;
         }
 };
 
 // Intel iGPU
-class NEOGPUDeviceSelector : public device_selector {
+class IntelGPUSelector : public device_selector {
     public:
         int operator()(const device &Device) const override {
-            const std::string DeviceName = Device.get_info<info::device::name>();
+            const std::string vendor = Device.get_info<info::device::vendor>();
 
-            if (Device.is_gpu() && (DeviceName.find("HD Graphics NEO") != std::string::npos)) {
-                std::cout << std::endl << "Running on HD Graphics NEO GPU" << std::endl << std::endl;
+            if (Device.is_gpu() && (vendor.find("Intel(R) Corporation") != std::string::npos))
                 return 1;
-            }
 
             return 0;
         }

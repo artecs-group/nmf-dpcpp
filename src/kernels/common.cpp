@@ -24,7 +24,7 @@ void adjust_WH(queue q, C_REAL *W, C_REAL *Ht, int N, int M, int K) {
 }
 
 
-void V_div_WH2(queue q, C_REAL *V, C_REAL *WH, int N, int M) {
+void V_div_WH(queue q, C_REAL *V, C_REAL *WH, int N, int M) {
     int max_work_group_size = q.get_device().get_info<cl::sycl::info::device::max_work_group_size>();
     int GROUP_SIZE = max_work_group_size < N ? max_work_group_size : N;
     // adjust work-groups number 
@@ -33,14 +33,16 @@ void V_div_WH2(queue q, C_REAL *V, C_REAL *WH, int N, int M) {
     q.submit([&](handler& cgh) {
         cgh.parallel_for<class V_div_WH>(nd_range(range((N+remainder) * M), range(GROUP_SIZE)), [=](nd_item<1> item){
             int i = item.get_global_id(0);
-            WH[i] = sycl::native::divide(V[i], WH[i]);
+
+            if(i < N*M)
+                WH[i] = sycl::native::divide(V[i], WH[i]);
         });
     });
     q.wait();
 }
 
 
-void V_div_WH(queue q, C_REAL *V, C_REAL *WH, int N, int M) {
+void V_div_WH2(queue q, C_REAL *V, C_REAL *WH, int N, int M) {
     q.submit([&](handler& cgh) {
         cgh.parallel_for<class V_div_WH>(range<1>(N), [=](id <1> ij){
             int i = ij[0];
@@ -66,7 +68,7 @@ void mult_M_div_vect(queue q, C_REAL *Mat, C_REAL *Maux, C_REAL *acc, int M, int
 }
 
 
-void accum2(queue q, C_REAL *acc, C_REAL *X, int N, int M) {
+void accum(queue q, C_REAL *acc, C_REAL *X, int N, int M) {
     // init acc
     q.submit([&](auto &h) {
         h.parallel_for(sycl::range<1>(M), [=](id <1> i) {
@@ -116,7 +118,7 @@ void accum2(queue q, C_REAL *acc, C_REAL *X, int N, int M) {
 }
 
 
-void accum(queue q, C_REAL *acc, C_REAL *X, int N, int M) { 
+void accum2(queue q, C_REAL *acc, C_REAL *X, int N, int M) { 
     q.submit([&](handler& cgh) {
         cgh.parallel_for<class accum_add_matrix>(range<1>(M), [=](id <1> j){
 
