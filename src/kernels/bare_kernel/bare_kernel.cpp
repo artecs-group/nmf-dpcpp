@@ -17,19 +17,6 @@ void bare_W_mult_H(queue q, C_REAL *WH, C_REAL *W, C_REAL *Htras, int N, int M, 
 }
 
 
-void bare_accum(queue q, C_REAL *acc, C_REAL *X, int N, int M) {
-    q.submit([&](handler& cgh) {
-        cgh.parallel_for<class accum_add_matrix>(range<1>(M), [=](id <1> j){
-
-            acc[j] = 0;
-            for(int i = 0; i < N; i++)
-                acc[j] += X[i*M + j];
-        });
-    });
-    q.wait();
-}
-
-
 void bare_Wt_mult_WH(queue q, C_REAL *Haux, C_REAL *W, C_REAL *WH, int N, int M, int K) {
     q.submit([&](handler& cgh) {
         cgh.parallel_for<class Wt_mul_WH>(range<2>(K, M), [=](id <2> jk){
