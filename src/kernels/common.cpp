@@ -129,19 +129,3 @@ void accum2(queue q, C_REAL *acc, C_REAL *X, int N, int M) {
     });
     q.wait();
 }
-
-
-void copy_to_device(queue q, C_REAL *dev, C_REAL *host, int N, int M) {
-    q.submit([&](handler& cgh) {
-        cgh.memcpy(dev, &host[0], N*M * sizeof(C_REAL));
-    });
-    q.wait();
-}
-
-
-void init_vector(queue q, C_REAL *vec, int N, int M, C_REAL init_val) {
-    q.submit([&](handler& cgh) {
-        cgh.fill(vec, vec + N*M, init_val);
-    });
-    q.wait();   
-}
