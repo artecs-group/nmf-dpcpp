@@ -1,7 +1,10 @@
 OPTIMIZE    = yes
 DEBUG       = no
+KERNEL      = bare # {bare, blas}
 REAL        = simple # {simple, double}
 
+# Program flags
+PKERNEL = BARE_KERNEL
 PREAL = REAL_S
 VAR_N = 500
 VAR_M = 100
@@ -19,7 +22,7 @@ CC = dpcpp
 ifeq ($(CC),dpcpp)
   CFLAGS = -D$(PREAL) -DVAR_N=$(VAR_N) -DVAR_M=$(VAR_M) -DVAR_K=$(VAR_K)
 else
-  CFLAGS := -std=c++11 -Wall -fsycl -D$(PREAL) -DVAR_N=$(VAR_N) -DVAR_M=$(VAR_M) -DVAR_K=$(VAR_K)
+  CFLAGS := -std=c++11 -Wall -fsycl -D$(PKERNEL) -D$(PREAL) -DVAR_N=$(VAR_N) -DVAR_M=$(VAR_M) -DVAR_K=$(VAR_K)
 endif
 
 # Debug Flags
@@ -31,7 +34,6 @@ endif
 ifeq ($(OPTIMIZE),yes)
   CFLAGS += -O3
 endif
-
 
 nmf: nmf_LeeSeung.o \
   ./kernels/bare_kernel/bare_kernel.o \

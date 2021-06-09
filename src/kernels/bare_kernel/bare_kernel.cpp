@@ -17,21 +17,7 @@ void bare_W_mult_H(queue q, buffer<C_REAL, 1> b_WH, buffer<C_REAL, 1> b_W, buffe
                 WH[i*M + j] += W[i*K + k] * Htras[j*K + k];
         });
     });
-}
-
-
-void bare_accum(queue q, buffer<C_REAL, 1> b_acc, buffer<C_REAL, 1> b_X, int N, int M) {
-    q.submit([&](handler& cgh) {
-        auto acc = b_acc.get_access<sycl_read_write>(cgh);
-        auto X = b_X.get_access<sycl_read>(cgh);
-
-        cgh.parallel_for<class accum_add_matrix>(range<1>(M), [=](id <1> j){
-
-            acc[j] = 0;
-            for(int i = 0; i < N; i++)
-                acc[j] += X[i*M + j];
-        });
-    });
+    q.wait();
 }
 
 
@@ -51,6 +37,7 @@ void bare_Wt_mult_WH(queue q, buffer<C_REAL, 1> b_Haux, buffer<C_REAL, 1> b_W, b
                 Haux[k*K + j] += W[i*K + j] * WH[i*M + k];
         });
     });
+    q.wait();
 }
 
 
@@ -59,7 +46,7 @@ void bare_WH_mult_Ht(queue q, buffer<C_REAL, 1> b_Waux, buffer<C_REAL, 1> b_WH, 
         auto Waux = b_Waux.get_access<sycl_read_write>(cgh);
         auto WH = b_WH.get_access<sycl_read>(cgh);
         auto Htras = b_Htras.get_access<sycl_read>(cgh);
-
+        
         cgh.parallel_for<class matrix_mul_sum>(range<2>(N, K), [=](id <2> ij){
             int i = ij[0];
             int j = ij[1];
@@ -70,4 +57,5 @@ void bare_WH_mult_Ht(queue q, buffer<C_REAL, 1> b_Waux, buffer<C_REAL, 1> b_WH, 
                 Waux[i*K + j] += WH[i*M + k] * Htras[k*K + j];
         });
     });
+    q.wait();
 }

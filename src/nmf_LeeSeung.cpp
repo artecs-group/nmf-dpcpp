@@ -2,11 +2,23 @@
 #include <sys/time.h>
 #include <time.h>
 
-// #ifdef BLAS_KERNEL
+#ifdef BLAS_KERNEL
 #include "./kernels/blas_kernel/blas_kernel.h"
-// #else
-// #include "./kernels/bare_kernel/bare_kernel.h" //default kernels
-// #endif
+#else
+#include "./kernels/bare_kernel/bare_kernel.h" //default kernels
+#endif
+
+
+inline int pow2roundup(int x) {
+    --x;
+    x |= x >> 1;
+    x |= x >> 2;
+    x |= x >> 4;
+    x |= x >> 8;
+    x |= x >> 16;
+    return x+1;
+}
+
 
 double gettime() {
 	double final_time;
@@ -19,54 +31,13 @@ double gettime() {
 }
 
 
-C_REAL *get_memory1D(int nx){ 
-	C_REAL *buffer = new C_REAL[nx];	
-
-	for(int i = 0; i < nx; i++ )
-		buffer[i] = (C_REAL)(i*10);
-
-	return buffer;
-}
-
-
-void delete_memory1D(C_REAL *buffer) { 
-	delete[] buffer;
-}
-
-
-unsigned char *get_memory1D_uchar(int nx) { 
-	unsigned char *buffer = new unsigned char[nx];
-
-    for(int i = 0; i < nx; i++)
-		buffer[i] = (int)(0);
-
-	return buffer ;
-}
-
-
-void delete_memory1D_uchar(unsigned char *buffer) { 
-	delete[] buffer;
-}
-
-
-C_REAL *get_memory2D_in_1D(int nx, int ny) {
-	C_REAL *buffer = new C_REAL[nx*ny];
-
-	for(int i = 0; i < nx; i++)
-		for(int j = 0; j < ny; j++)
-			buffer[i*ny + j] = (C_REAL)(i*100 + j);
-
-	return buffer;
-}
-
-
-void matrix_copy1D_uchar(unsigned char *in, unsigned char *out, int nx) {
+void matrix_copy1D_uchar(unsigned char* in, unsigned char* out, int nx) {
 	for (int i = 0; i < nx; i++)
 		out[i] = in[i];
 }
 
 
-void matrix_copy2D(buffer<C_REAL, 1> b_in, C_REAL *out, int nx, int ny) {
+void matrix_copy2D(buffer<C_REAL, 1> b_in, C_REAL* out, int nx, int ny) {
 	auto in = b_in.get_access<sycl_read>();
 	
 	for (int i = 0; i < nx; i++)
@@ -75,7 +46,7 @@ void matrix_copy2D(buffer<C_REAL, 1> b_in, C_REAL *out, int nx, int ny) {
 }
 
 
-void initWH(buffer<C_REAL, 1> b_W, buffer<C_REAL, 1> b_Htras, int N, int M, int K) {	
+void initWH(buffer<C_REAL, 1> b_W, buffer<C_REAL, 1> b_Htras, int N, int N_pad, int M, int M_pad, int K) {	
     auto W = b_W.get_access<sycl_write>();
     auto Htras = b_Htras.get_access<sycl_write>();
 
@@ -89,43 +60,29 @@ void initWH(buffer<C_REAL, 1> b_W, buffer<C_REAL, 1> b_Htras, int N, int M, int 
 	// srand(seedi);
 	srand(0);
 
-	for (int i = 0; i < N; i++)
-		for (int j = 0; j < K; j++)
-			W[i*K + j] = ((C_REAL)(rand()))/RAND_MAX;
+	for (int i = 0; i < N*K; i++)
+		W[i] = ((C_REAL)(rand()))/RAND_MAX;
 
-	for (int i = 0; i < M; i++)
-        for (int j = 0; j < K; j++)
-			Htras[i*K + j] = ((C_REAL)(rand()))/RAND_MAX;
+	for (int i = 0; i < M*K; i++)
+		Htras[i] = ((C_REAL)(rand()))/RAND_MAX;
 
 #ifdef DEBUG
 	/* Added to debug */
 	FILE *fIn;
-	C_REAL *Wtmp = get_memory2D_in_1D(N, K);
-	int size_W = N*K;
+	int size_W{N*K};
 
 	fIn = fopen("w_bin.bin", "r");
-	fread(Wtmp, sizeof(C_REAL), size_W, fIn);
+	fread(W, sizeof(C_REAL), size_W, fIn);
 	fclose(fIn);
 
-	for (int i = 0; i < N; i++)
-        for (int j = 0; j < K; j++)
-			W[i*K + j] = Wtmp[i*K + j];
-
-	delete_memory1D(Wtmp);
-
-	int size_H = M*K;
-	C_REAL *Htmp = get_memory2D_in_1D(M, K);
+	int size_H{M*K};
 	fIn = fopen("h_bin.bin", "r");
-	fread(Htmp, sizeof(C_REAL), size_H, fIn);
+	fread(Htras, sizeof(C_REAL), size_H, fIn);
 	fclose(fIn);
-
-	for (int i = 0; i < M; i++)
-        for (int j = 0; j < K; j++)
-			Htras[i*K + j] = Htmp[i*K + j];
-
-	delete_memory1D(Htmp);
-	
 #endif
+
+	std::fill(W + (N*K), W + (N_pad*K), 0);
+	std::fill(Htras + (M*K), Htras + (M_pad*K), 0);
 }
 
 
@@ -187,33 +144,19 @@ void printMATRIX_buff(buffer<C_REAL, 1> b_m, int I, int J) {
 }
 
 
-void init_V(buffer<C_REAL, 1> b_V_fill, buffer<C_REAL, 1> b_V_col1, 
-buffer<C_REAL, 1> b_V_col2, int N, int M, int M1, int M2, char* file_name)
+void init_V(
+	buffer<C_REAL, 1> b_V, buffer<C_REAL, 1> b_V_col1, 
+	buffer<C_REAL, 1> b_V_col2, 
+	int N, int M, int M1, int M2, char* file_name)
 {
-	auto V_fill = b_V_fill.get_access<sycl_write>();
+	auto V      = b_V.get_access<sycl_read_write>();
 	auto V_col1 = b_V_col1.get_access<sycl_write>();
 	auto V_col2 = b_V_col2.get_access<sycl_write>();
 
 #ifndef RANDOM
-	C_REAL *V_aux = get_memory2D_in_1D(N, M);
 	FILE *fIn = fopen(file_name, "r");
-
-	fread(V_aux, sizeof(C_REAL), N*M, fIn);
+	fread(V, sizeof(C_REAL), N*M, fIn);
 	fclose(fIn);
-
-	for (int i = 0; i < N; i++)
-        for (int j = 0; j < M; j++)
-            V_fill[i*M + j] = V_aux[i*M + j];
-
-	for (int i = 0; i < N; i++)
-        for (int j = 0; j < M1; j++)
-            V_col1[i*M1 + j] = V_aux[i*M + j];
-
-	for (int i = 0; i < N; i++)
-        for (int j = 0; j < M2; j++)
-            V_col2[i*M2 + j] = V_aux[i*M + j + M1];
-
-	delete_memory1D(V_aux);
 #else
 	/* Generated random values between 0.00 - 1.00 */
 	// FILE *fd;
@@ -223,18 +166,25 @@ buffer<C_REAL, 1> b_V_col2, int N, int M, int M1, int M2, char* file_name)
     // fclose (fd);
     srand( 0 );
 
-    for (int i = 0; i < N; i++)
-        for (int j = 0; j < M; j++)
-            V[i*M + j] = ((C_REAL)(rand()))/RAND_MAX;
+    for (int i = 0; i < N*M; i++)
+        V[i] = ((C_REAL)(rand()))/RAND_MAX;
 #endif
+
+	return V;
+
+	for (int i = 0; i < N; i++)
+        for (int j = 0; j < M1; j++)
+            V_col1[i*M1 + j] = V[i*M + j];
+
+	for (int i = 0; i < N; i++)
+        for (int j = 0; j < M2; j++)
+            V_col2[i*M2 + j] = V[i*M + j + M1];
 }
 
 
 /* Gets the difference between matrix_max_index_h and conn_last matrices. */
-int get_difference(unsigned char *classification, 
-    unsigned char *last_classification, int nx)
-{
-	int diff = 0;
+int get_difference(unsigned char* classification, unsigned char* last_classification, int nx) {
+	int diff{0};
 	int conn, conn_last;
 	
 	for(int i = 0; i < nx; i++)
@@ -249,11 +199,9 @@ int get_difference(unsigned char *classification,
 
 
 /* Get consensus from the classificacion vector */
-void get_consensus(unsigned char *classification, unsigned char *consensus,
-    int nx)
-{
+void get_consensus(unsigned char* classification, unsigned char* consensus, int nx) {
 	unsigned char conn;
-	int ii = 0;
+	int ii{0};
 	
 	for(int i = 0; i < nx; i++)
 		for(int j = i+1; j < nx; j++) {
@@ -265,7 +213,7 @@ void get_consensus(unsigned char *classification, unsigned char *consensus,
 
 
 /* Obtain the classification vector from the Ht matrix */
-void get_classification(buffer<C_REAL, 1> b_Htras, unsigned char *classification,
+void get_classification(buffer<C_REAL, 1> b_Htras, unsigned char* classification,
     int M, int K)
 {
     auto Htras = b_Htras.get_access<sycl_read>();
@@ -282,8 +230,10 @@ void get_classification(buffer<C_REAL, 1> b_Htras, unsigned char *classification
 }
 
 
-C_REAL get_Error(buffer<C_REAL, 1> b_V, buffer<C_REAL, 1> b_W, 
-    buffer<C_REAL, 1> b_Htras, int N, int M, int K) 
+C_REAL get_Error(
+	buffer<C_REAL, 1> b_V, buffer<C_REAL, 1> b_W, 
+    buffer<C_REAL, 1> b_Htras, int N, int M, int K
+) 
 {
 	/*
 	* norm( V-WH, 'Frobenius' ) == sqrt( sum( diag( (V-WH)'* (V-WH) ) )
@@ -306,7 +256,7 @@ C_REAL get_Error(buffer<C_REAL, 1> b_V, buffer<C_REAL, 1> b_W,
     auto W = b_W.get_access<sycl_read>();
     auto Htras = b_Htras.get_access<sycl_read>();
     
-	C_REAL error = 0.0;
+	C_REAL error{0.0};
 	C_REAL Vnew;
 
 	for(int i = 0; i < N; i++) {
@@ -323,12 +273,12 @@ C_REAL get_Error(buffer<C_REAL, 1> b_V, buffer<C_REAL, 1> b_W,
 }
 
 
-void writeSolution(C_REAL *W, C_REAL*Ht, unsigned char *consensus, int N, int M,
+void writeSolution(C_REAL* W, C_REAL* Ht, unsigned char* consensus, int N, int M,
     int K, int nTests)
 {
 	FILE *fOut;
 	char file[100];
-	C_REAL *H = get_memory2D_in_1D(K, M);
+	C_REAL *H = new C_REAL[K*M];
 	
 	for (int i = 0; i < K; i++)
 		for (int j = 0; j < M; j++)
@@ -344,26 +294,27 @@ void writeSolution(C_REAL *W, C_REAL*Ht, unsigned char *consensus, int N, int M,
 	fwrite( &nTests, sizeof(int), 1, fOut);
 	fwrite( consensus, sizeof(unsigned char), (M*(M-1))/2, fOut);
 	fclose( fOut );
-	delete_memory1D(H);
+	delete [] H;
 }
 
 
 void nmf(int niter, 
-	queue cpu_q,
-	queue gpu_q, 
-	buffer<C_REAL, 1> b_V_fil, buffer<C_REAL, 1> b_V_col1, 
-	buffer<C_REAL, 1> b_V_col2, buffer<C_REAL, 1> b_WH_fil, 
+	queue q1,
+	queue q2, 
+	buffer<C_REAL, 1> b_V, buffer<C_REAL, 1> b_V_col1, 
+	buffer<C_REAL, 1> b_V_col2, buffer<C_REAL, 1> b_WH, 
 	buffer<C_REAL, 1> b_WH_col1, buffer<C_REAL, 1> b_WH_col2,
 	buffer<C_REAL, 1> b_W, buffer<C_REAL, 1> b_Htras, 
     buffer<C_REAL, 1> b_Waux, buffer<C_REAL, 1> b_Haux,
-	buffer<C_REAL, 1> b_accW, buffer<C_REAL, 1> b_accH)
+	buffer<C_REAL, 1> b_accW, buffer<C_REAL, 1> b_accH,
+	int N_pad, int M_pad)
 {
 	// Aux sub-buffers
-	buffer<C_REAL, 1> b_V_fil1 { b_V_fil, id{0}, range{ N1*M }};
-	buffer<C_REAL, 1> b_V_fil2 { b_V_fil, id{N1*M}, range{ N2*M }};
+	buffer<C_REAL, 1> b_V_row1 { b_V, id{0}, range{ N1*M }};
+	buffer<C_REAL, 1> b_V_row2 { b_V, id{N1*M}, range{ N2*M }};
 
-	buffer<C_REAL, 1> b_WH_fil1 { b_WH_fil, id{0}, range{ N1*M }};
-	buffer<C_REAL, 1> b_WH_fil2 { b_WH_fil, id{N1*M}, range{ N2*M }};
+	buffer<C_REAL, 1> b_WH_row1 { b_WH, id{0}, range{ N1*M }};
+	buffer<C_REAL, 1> b_WH_row2 { b_WH, id{N1*M}, range{ N2*M }};
 
 	buffer<C_REAL, 1> b_Htras1 { b_Htras, id{0}, range{ M1*K }};
 	buffer<C_REAL, 1> b_Htras2 { b_Htras, id{M1*K}, range{ M2*K }};
@@ -389,71 +340,71 @@ void nmf(int niter,
 		/*******************************************/
 
         /* WH = W*H */
-		W_mult_H(cpu_q, b_WH_col1, b_W, b_Htras1, N, M1, K);
-		cpu_q.wait();
-		W_mult_H(gpu_q, b_WH_col2, b_W, b_Htras2, N, M2, K);
-		gpu_q.wait();
+		W_mult_H(q1, b_WH_col1, b_W, b_Htras1, N, M1, K);
+		q1.wait();
+		W_mult_H(q2, b_WH_col2, b_W, b_Htras2, N, M2, K);
+		q2.wait();
 
 		/* WH = (V./(W*H) */
-		V_div_WH(cpu_q, b_V_col1, b_WH_col1, N, M1);
-		cpu_q.wait();
-        V_div_WH(gpu_q, b_V_col2, b_WH_col2, N, M2);
-		gpu_q.wait();
+		V_div_WH(q1, b_V_col1, b_WH_col1, N, M1);
+		q1.wait();
+        V_div_WH(q2, b_V_col2, b_WH_col2, N, M2);
+		q2.wait();
 
 		/* Shrink into one column */
-        accum(cpu_q, b_accW, b_W, N, K);
-		cpu_q.wait();
+        accum(q2, b_accW, b_W, N_pad, K);
+		q2.wait();
 
 		/* Haux = (W'* {V./(WH)} */
-        Wt_mult_WH(cpu_q, b_Haux1, b_W, b_WH_col1, N, M1, K);
-		cpu_q.wait();
-		Wt_mult_WH(gpu_q, b_Haux2, b_W, b_WH_col2, N, M2, K);
-		gpu_q.wait();
+        Wt_mult_WH(q1, b_Haux1, b_W, b_WH_col1, N, M1, K);
+		q1.wait();
+		Wt_mult_WH(q2, b_Haux2, b_W, b_WH_col2, N, M2, K);
+		q2.wait();
 
 		/* H = H .* (Haux) ./ accum_W */
-        mult_M_div_vect(cpu_q, b_Htras1, b_Haux1, b_accW, M1, K);
-		cpu_q.wait();
-		mult_M_div_vect(gpu_q, b_Htras2, b_Haux2, b_accW, M2, K);
-		gpu_q.wait();
+        mult_M_div_vect(q1, b_Htras1, b_Haux1, b_accW, M1, K);
+		q1.wait();
+		mult_M_div_vect(q2, b_Htras2, b_Haux2, b_accW, M2, K);
+		q2.wait();
 
 		/*******************************************/
 		/*** W = W .* ((V./(W*H))*H') ./ accum_H ***/
 		/*******************************************/
 
 		/* WH = W*H */
-		W_mult_H(cpu_q, b_WH_fil1, b_W1, b_Htras, N1, M, K);
-		cpu_q.wait();
-		W_mult_H(gpu_q, b_WH_fil2, b_W2, b_Htras, N2, M, K);
-		gpu_q.wait();
+		W_mult_H(q1, b_WH_row1, b_W1, b_Htras, N1, M, K);
+		q1.wait();
+		W_mult_H(q2, b_WH_row2, b_W2, b_Htras, N2, M, K);
+		q2.wait();
 
 		/* WH = (V./(W*H) */
-		V_div_WH(cpu_q, b_V_fil1, b_WH_fil1, N1, M);
-		cpu_q.wait();
-        V_div_WH(gpu_q, b_V_fil2, b_WH_fil2, N2, M);
-		gpu_q.wait();
+		V_div_WH(q1, b_V_row1, b_WH_row1, N1, M);
+		q1.wait();
+        V_div_WH(q2, b_V_row2, b_WH_row2, N2, M);
+		q2.wait();
 
 		/* Waux =  {V./(W*H)} *H' */
-        WH_mult_Ht(cpu_q, b_Waux1, b_WH_fil1, b_Htras, N1, M, K);
-		cpu_q.wait();
-		WH_mult_Ht(gpu_q, b_Waux2, b_WH_fil2, b_Htras, N2, M, K);
-		gpu_q.wait();
+        WH_mult_Ht(q1, b_Waux1, b_WH_row1, b_Htras, N1, M, K);
+		q1.wait();
+		WH_mult_Ht(q2, b_Waux2, b_WH_row2, b_Htras, N2, M, K);
+		q2.wait();
 
 		/* Shrink into one column */
-        accum(cpu_q, b_accH, b_Htras, M, K);
-		cpu_q.wait();
+        accum(q2, b_accH, b_Htras, M_pad, K);
+		q2.wait();
 
 		/* W = W .* Waux ./ accum_H */
-		mult_M_div_vect(cpu_q, b_W1, b_Waux1, b_accH, N1, K);
-		cpu_q.wait();
-		mult_M_div_vect(gpu_q, b_W2, b_Waux2, b_accH, N2, K);
-		gpu_q.wait();
+		mult_M_div_vect(q1, b_W1, b_Waux1, b_accH, N1, K);
+		q1.wait();
+		mult_M_div_vect(q2, b_W2, b_Waux2, b_accH, N2, K);
+		q2.wait();
 
     }
 	/* Adjust small values to avoid undeflow: h=max(h,eps);w=max(w,eps); */
-	adjust_WH(cpu_q, b_W1, b_Htras1, N1, M1, K);
-	cpu_q.wait();
-	adjust_WH(gpu_q, b_W2, b_Htras2, N2, M2, K);
-	gpu_q.wait();
+	adjust_WH(q1, b_W, b_Htras, N, M, K);
+	q1.wait();
+	// adjust_WH(q2, b_W2, b_Htras2, N2, M2, K);
+	// q2.wait();
 }
 
 
@@ -471,6 +422,8 @@ int main(int argc, char *argv[]) {
 	char file_name[255];
 	int iter;
 	int diff, inc;
+	int N_pad = pow2roundup(N);
+	int M_pad = pow2roundup(M);
 	
 	double time0, time1;
 	
@@ -490,11 +443,8 @@ int main(int argc, char *argv[]) {
 
     printf("file=%s\nN=%i M=%i K=%i nTests=%i stop_threshold=%i\n", file_name, N, M, K, nTests, stop_threshold);
 
-	cpu_selector cpu_sel{};
-	NEOGPUDeviceSelector gpu_sel{};
-
-	sycl::queue cpu_q{cpu_sel};
-	sycl::queue gpu_q{gpu_sel};
+	sycl::queue cpu_q{cpu_selector{}};
+	sycl::queue gpu_q{IntelGPUSelector{}};
 
 	std::cout << "Running on "
 				<< cpu_q.get_device().get_info<sycl::info::device::name>()
@@ -502,23 +452,23 @@ int main(int argc, char *argv[]) {
 				<< gpu_q.get_device().get_info<sycl::info::device::name>()
 				<< std::endl;
 
-    W_best              = get_memory2D_in_1D(N, K);
-    Htras_best          = get_memory2D_in_1D(M, K);
-    classification      = get_memory1D_uchar(M);
-	last_classification = get_memory1D_uchar(M);
-	consensus           = get_memory1D_uchar(M*(M-1)/2);
+    W_best              = new C_REAL[N*K];
+    Htras_best          = new C_REAL[M*K];
+    classification      = new C_REAL[M];
+	last_classification = new C_REAL[M];
+	consensus           = new C_REAL[M*(M-1)/2];
 
-    buffer<C_REAL, 1> b_V_fil{range{N * M}};
+    buffer<C_REAL, 1> b_V{range{N * M}};
 	buffer<C_REAL, 1> b_V_col1{range{N * M1}};
 	buffer<C_REAL, 1> b_V_col2{range{N * M2}};
-	init_V(b_V_fil, b_V_col1, b_V_col2, N, M, M1, M2, file_name);
+	init_V(b_V, b_V_col1, b_V_col2, N, M, M1, M2, file_name);
 
-	buffer<C_REAL, 1> b_WH_fil{range{N * M}};
+	buffer<C_REAL, 1> b_WH{range{N * M}};
 	buffer<C_REAL, 1> b_WH_col1{range{N * M1}};
 	buffer<C_REAL, 1> b_WH_col2{range{N * M2}};
 
-    buffer<C_REAL, 1> b_W{range{N * K}};
-    buffer<C_REAL, 1> b_Htras{range{M * K}};
+    buffer<C_REAL, 1> b_W{range{N_pad * K}};
+    buffer<C_REAL, 1> b_Htras{range{M_pad * K}};
     buffer<C_REAL, 1> b_Haux{range{M * K}};
     buffer<C_REAL, 1> b_Waux{range{N * K}};
     buffer<C_REAL, 1> b_acumm_W{range{K}};
@@ -532,7 +482,7 @@ int main(int argc, char *argv[]) {
 
 	for(int test = 0; test < nTests; test++) {
 		/* Init W and H */
-		initWH(b_W, b_Htras, N, M, K);
+		initWH(W, Htras, N, M, K, N_pad, M_pad);
 
 		niters = 2000 / NITER_TEST_CONV;
 
@@ -543,12 +493,12 @@ int main(int argc, char *argv[]) {
 			iter++;
 
 			/* Main Proccess of NMF Brunet */
-			nmf(NITER_TEST_CONV, cpu_q, gpu_q, b_V_fil,
-				b_V_col1, b_V_col2, b_WH_fil, b_WH_col1, b_WH_col2, b_W, 
-				b_Htras, b_Waux, b_Haux, b_acumm_W, b_acumm_H);
+			nmf(NITER_TEST_CONV, cpu_q, gpu_q, b_V,
+				b_V_col1, b_V_col2, b_WH, b_WH_col1, b_WH_col2, b_W, 
+				b_Htras, b_Waux, b_Haux, b_acumm_W, b_acumm_H, N_pad, M_pad);
 
 			/* Test of convergence: construct connectivity matrix */
-			get_classification(b_Htras, classification, M, K);
+			get_classification(Htras, classification, M, K);
 
 			diff = get_difference(classification, last_classification, M);
 			matrix_copy1D_uchar(classification, last_classification, M);
@@ -570,11 +520,11 @@ int main(int argc, char *argv[]) {
 		get_consensus(classification, consensus, M);
 
 		/* Get variance of the method error = |V-W*H| */
-		error = get_Error(b_V_fil, b_W, b_Htras, N, M, K);
+		error = get_Error(b_V, b_W, b_Htras, N, M, K);
 		if (error < error_old) {
 			printf("Better W and H, Error %e Test=%i, Iter=%i\n", error, test, iter);
-			matrix_copy2D(b_W, W_best, N, K);
-			matrix_copy2D(b_Htras, Htras_best, M, K);
+			matrix_copy2D(W, W_best, N, K);
+			matrix_copy2D(Htras, Htras_best, M, K);
 			error_old = error;
 		}
 	}
@@ -591,11 +541,11 @@ int main(int argc, char *argv[]) {
 	printMATRIX(W_best, N, K);
 
     /* Free memory used */
-	delete_memory1D(W_best);
-	delete_memory1D(Htras_best);
-	delete_memory1D_uchar(classification);
-	delete_memory1D_uchar(last_classification);
-	delete_memory1D_uchar(consensus);
+	delete[] W_best;
+	delete[] Htras_best;
+	delete[] classification;
+	delete[] last_classification;
+	delete[] consensus;
 
 	return 0;
 }
