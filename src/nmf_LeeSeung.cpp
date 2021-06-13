@@ -81,8 +81,8 @@ void initWH(buffer<C_REAL, 1> b_W, buffer<C_REAL, 1> b_Htras, int N, int N_pad, 
 	fclose(fIn);
 #endif
 
-	std::fill(W + (N*K), W + (N_pad*K), 0);
-	std::fill(Htras + (M*K), Htras + (M_pad*K), 0);
+	//std::fill(W + (N*K), W + (N_pad*K), 0);
+	//std::fill(Htras + (M*K), Htras + (M_pad*K), 0);
 }
 
 
@@ -169,8 +169,6 @@ void init_V(
     for (int i = 0; i < N*M; i++)
         V[i] = ((C_REAL)(rand()))/RAND_MAX;
 #endif
-
-	return V;
 
 	for (int i = 0; i < N; i++)
         for (int j = 0; j < M1; j++)
@@ -414,9 +412,9 @@ int main(int argc, char *argv[]) {
 	// const property_list props = property::buffer::use_host_ptr();
 
 	// C_REAL *h_V, *h_WH, *h_W, *h_Htras, *h_Haux, *h_Waux, *h_acumm_W, *h_acumm_H;
-	C_REAL *W_best, *Htras_best;
-	unsigned char *classification, *last_classification;
-	unsigned char *consensus;
+	C_REAL* W_best, *Htras_best;
+	unsigned char* classification, *last_classification;
+	unsigned char* consensus;
 
 	int stop;
 	char file_name[255];
@@ -454,9 +452,9 @@ int main(int argc, char *argv[]) {
 
     W_best              = new C_REAL[N*K];
     Htras_best          = new C_REAL[M*K];
-    classification      = new C_REAL[M];
-	last_classification = new C_REAL[M];
-	consensus           = new C_REAL[M*(M-1)/2];
+    classification      = new unsigned char[M];
+	last_classification = new unsigned char[M];
+	consensus           = new unsigned char[M*(M-1)/2];
 
     buffer<C_REAL, 1> b_V{range{N * M}};
 	buffer<C_REAL, 1> b_V_col1{range{N * M1}};
@@ -467,8 +465,8 @@ int main(int argc, char *argv[]) {
 	buffer<C_REAL, 1> b_WH_col1{range{N * M1}};
 	buffer<C_REAL, 1> b_WH_col2{range{N * M2}};
 
-    buffer<C_REAL, 1> b_W{range{N_pad * K}};
-    buffer<C_REAL, 1> b_Htras{range{M_pad * K}};
+    buffer<C_REAL, 1> b_W{range{N * K}};
+    buffer<C_REAL, 1> b_Htras{range{M * K}};
     buffer<C_REAL, 1> b_Haux{range{M * K}};
     buffer<C_REAL, 1> b_Waux{range{N * K}};
     buffer<C_REAL, 1> b_acumm_W{range{K}};
@@ -482,7 +480,7 @@ int main(int argc, char *argv[]) {
 
 	for(int test = 0; test < nTests; test++) {
 		/* Init W and H */
-		initWH(W, Htras, N, M, K, N_pad, M_pad);
+		initWH(b_W, b_Htras, N, M, K, N_pad, M_pad);
 
 		niters = 2000 / NITER_TEST_CONV;
 
@@ -498,7 +496,7 @@ int main(int argc, char *argv[]) {
 				b_Htras, b_Waux, b_Haux, b_acumm_W, b_acumm_H, N_pad, M_pad);
 
 			/* Test of convergence: construct connectivity matrix */
-			get_classification(Htras, classification, M, K);
+			get_classification(b_Htras, classification, M, K);
 
 			diff = get_difference(classification, last_classification, M);
 			matrix_copy1D_uchar(classification, last_classification, M);
@@ -523,8 +521,8 @@ int main(int argc, char *argv[]) {
 		error = get_Error(b_V, b_W, b_Htras, N, M, K);
 		if (error < error_old) {
 			printf("Better W and H, Error %e Test=%i, Iter=%i\n", error, test, iter);
-			matrix_copy2D(W, W_best, N, K);
-			matrix_copy2D(Htras, Htras_best, M, K);
+			matrix_copy2D(b_W, W_best, N, K);
+			matrix_copy2D(b_Htras, Htras_best, M, K);
 			error_old = error;
 		}
 	}

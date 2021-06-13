@@ -16,11 +16,15 @@ ifeq ($(REAL),double)
   PREAL = REAL_D
 endif
 
+ifeq ($(KERNEL),blas)
+  PKERNEL = BLAS_KERNEL
+endif
+
 # Default compiler and flags
 CC = dpcpp
 
 ifeq ($(CC),dpcpp)
-  CFLAGS = -D$(PREAL) -DVAR_N=$(VAR_N) -DVAR_M=$(VAR_M) -DVAR_K=$(VAR_K)
+  CFLAGS = -D$(PREAL) -D$(PKERNEL) -DVAR_N=$(VAR_N) -DVAR_M=$(VAR_M) -DVAR_K=$(VAR_K)
 else
   CFLAGS := -std=c++11 -Wall -fsycl -D$(PKERNEL) -D$(PREAL) -DVAR_N=$(VAR_N) -DVAR_M=$(VAR_M) -DVAR_K=$(VAR_K)
 endif

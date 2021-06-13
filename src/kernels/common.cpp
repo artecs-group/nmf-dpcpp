@@ -79,10 +79,10 @@ void mult_M_div_vect(queue q, buffer<C_REAL, 1> b_M, buffer<C_REAL, 1> b_Maux, b
 }
 
 
-void accum(queue q, buffer<C_REAL, 1> b_acc, buffer<C_REAL, 1> b_X, int N, int M) {
+void accum2(queue q, buffer<C_REAL, 1> b_acc, buffer<C_REAL, 1> b_X, int N, int M) {
     // init acc
     q.submit([&](auto &h) {
-        auto acc = b_acc.get_access<sycl_write>(cgh);
+        auto acc = b_acc.get_access<sycl_write>(h);
 
         h.parallel_for(sycl::range<1>(M), [=](id <1> i) {
             acc[i] = 0;
@@ -95,8 +95,8 @@ void accum(queue q, buffer<C_REAL, 1> b_acc, buffer<C_REAL, 1> b_X, int N, int M
     int data_size = fixed_N * M;
 
     q.submit([&](auto &h) {
-        auto acc = b_acc.get_access<sycl_read_write>(cgh);
-        auto X = b_X.get_access<sycl_read>(cgh);
+        auto acc = b_acc.get_access<sycl_read_write>(h);
+        auto X = b_X.get_access<sycl_read>(h);
         sycl::accessor<C_REAL, 1, sycl::access::mode::read_write, sycl::access::target::local> scratch(fixed_N, h);
 
         h.parallel_for(sycl::nd_range(range(data_size), range(fixed_N)), [=](sycl::nd_item<1> item) {
@@ -133,9 +133,12 @@ void accum(queue q, buffer<C_REAL, 1> b_acc, buffer<C_REAL, 1> b_X, int N, int M
 }
 
 
-void accum2(queue q, C_REAL *acc, C_REAL *X, int N, int M) { 
-    q.submit([&](handler& cgh) {
-        cgh.parallel_for<class accum_add_matrix>(range<1>(M), [=](id <1> j){
+void accum(queue q, buffer<C_REAL, 1> b_acc, buffer<C_REAL, 1> b_X, int N, int M) { 
+    q.submit([&](handler& h) {
+        auto acc = b_acc.get_access<sycl_read_write>(h);
+        auto X = b_X.get_access<sycl_read>(h);
+
+        h.parallel_for<class accum_add_matrix>(range<1>(M), [=](id <1> j){
 
             acc[j] = 0;
             for(int i = 0; i < N; i++)
