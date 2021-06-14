@@ -2,6 +2,8 @@
 #include <sys/time.h>
 #include <time.h>
 
+#include "queue_data.hpp"
+
 #ifdef BLAS_KERNEL
 #include "./kernels/blas_kernel/blas_kernel.h"
 #else
@@ -37,19 +39,14 @@ void matrix_copy1D_uchar(unsigned char* in, unsigned char* out, int nx) {
 }
 
 
-void matrix_copy2D(buffer<C_REAL, 1> b_in, C_REAL* out, int nx, int ny) {
-	auto in = b_in.get_access<sycl_read>();
-	
+void matrix_copy2D(C_REAL* in, C_REAL* out, int nx, int ny) {
 	for (int i = 0; i < nx; i++)
 		for(int j = 0; j < ny; j++)
 			out[i*ny + j] = in[i*ny + j];
 }
 
 
-void initWH(buffer<C_REAL, 1> b_W, buffer<C_REAL, 1> b_Htras, int N, int N_pad, int M, int M_pad, int K) {	
-    auto W = b_W.get_access<sycl_write>();
-    auto Htras = b_Htras.get_access<sycl_write>();
-
+void initWH(C_REAL* W, C_REAL* Htras, int N, int N_pad, int M, int M_pad, int K) {	
 	// int seedi;
 	// FILE *fd;
 
@@ -114,44 +111,11 @@ void printMATRIX(C_REAL *m, int I, int J) {
 }
 
 
-void printMATRIX_buff(buffer<C_REAL, 1> b_m, int I, int J) {
-	auto m = b_m.get_access<sycl_read>();
-
-	printf("--------------------- matrix --------------------\n");
-	printf("             ");
-	for (int j = 0; j < J; j++) {
-		if (j < 10)
-			printf("%i      ", j);
-		else if (j < 100)
-			printf("%i     ", j);
-		else 
-			printf("%i    ", j);
-	}
-	printf("\n");
-
-	for (int i = 0; i < I; i++) {
-		if (i<10)
-			printf("Line   %i: ", i);
-		else if (i<100)
-			printf("Line  %i: ", i);
-		else
-			printf("Line %i: ", i);
-
-		for (int j = 0; j < J; j++)
-			printf("%5.4f ", m[i*J + j]);
-		printf("\n");
-	}
-}
-
-
-void init_V(
-	buffer<C_REAL, 1> b_V, buffer<C_REAL, 1> b_V_col1, 
-	buffer<C_REAL, 1> b_V_col2, 
-	int N, int M, int M1, int M2, char* file_name)
-{
-	auto V      = b_V.get_access<sycl_read_write>();
-	auto V_col1 = b_V_col1.get_access<sycl_write>();
-	auto V_col2 = b_V_col2.get_access<sycl_write>();
+void init_V(C_REAL *V, char* file_name, queue_data *qd1, queue_data *qd2) {
+	int N = qd1->N;
+	int M = qd1->M;
+	int M1 = qd1->M_split;
+	int M2 = qd2->M_split;
 
 #ifndef RANDOM
 	FILE *fIn = fopen(file_name, "r");
@@ -172,11 +136,14 @@ void init_V(
 
 	for (int i = 0; i < N; i++)
         for (int j = 0; j < M1; j++)
-            V_col1[i*M1 + j] = V[i*M + j];
+			qd1->V_col[i*M1 + j] = V[i*M + j];
 
 	for (int i = 0; i < N; i++)
         for (int j = 0; j < M2; j++)
-            V_col2[i*M2 + j] = V[i*M + j + M1];
+            qd2->V_col[i*M2 + j] = V[i*M + j + M1];
+
+	std::copy(V, V + (qd1->N_split * M), qd1->V_row);
+	std::copy(V + (qd1->N_split * M), V + (N*M), qd2->V_row);
 }
 
 
@@ -211,10 +178,8 @@ void get_consensus(unsigned char* classification, unsigned char* consensus, int 
 
 
 /* Obtain the classification vector from the Ht matrix */
-void get_classification(buffer<C_REAL, 1> b_Htras, unsigned char* classification,
-    int M, int K)
+void get_classification(C_REAL* Htras, unsigned char* classification, int M, int K)
 {
-    auto Htras = b_Htras.get_access<sycl_read>();
 	C_REAL max;
 	
 	for (int i = 0; i < M; i++) {
@@ -228,11 +193,7 @@ void get_classification(buffer<C_REAL, 1> b_Htras, unsigned char* classification
 }
 
 
-C_REAL get_Error(
-	buffer<C_REAL, 1> b_V, buffer<C_REAL, 1> b_W, 
-    buffer<C_REAL, 1> b_Htras, int N, int M, int K
-) 
-{
+C_REAL get_Error(C_REAL* V, C_REAL* W, C_REAL* Htras, int N, int M, int K) {
 	/*
 	* norm( V-WH, 'Frobenius' ) == sqrt( sum( diag( (V-WH)'* (V-WH) ) )
 	* norm( V-WH, 'Frobenius' )**2 == sum( diag( (V-WH)'* (V-WH) ) )
@@ -249,10 +210,6 @@ C_REAL get_Error(
 	* is equivalent to; error = sum( ( V-Vnew[:,i] .* V-Vnew[:,i] )
 	*
 	*/
-
-    auto V = b_V.get_access<sycl_read>();
-    auto W = b_W.get_access<sycl_read>();
-    auto Htras = b_Htras.get_access<sycl_read>();
     
 	C_REAL error{0.0};
 	C_REAL Vnew;
@@ -338,10 +295,8 @@ void nmf(int niter,
 		/*******************************************/
 
         /* WH = W*H */
-		W_mult_H(q1, b_WH_col1, b_W, b_Htras1, N, M1, K);
-		q1.wait();
+		W_mult_H(q1, b_WH_col1 , b_W, b_Htras1, N, M1, K);
 		W_mult_H(q2, b_WH_col2, b_W, b_Htras2, N, M2, K);
-		q2.wait();
 
 		/* WH = (V./(W*H) */
 		V_div_WH(q1, b_V_col1, b_WH_col1, N, M1);
@@ -409,12 +364,9 @@ void nmf(int niter,
 int main(int argc, char *argv[]) {
 	int niters;
 
-	// const property_list props = property::buffer::use_host_ptr();
-
-	// C_REAL *h_V, *h_WH, *h_W, *h_Htras, *h_Haux, *h_Waux, *h_acumm_W, *h_acumm_H;
-	C_REAL* W_best, *Htras_best;
-	unsigned char* classification, *last_classification;
-	unsigned char* consensus;
+	C_REAL *V, *Htras, *W, *W_best, *Htras_best;
+	unsigned char *classification, *last_classification;
+	unsigned char *consensus;
 
 	int stop;
 	char file_name[255];
@@ -430,47 +382,45 @@ int main(int argc, char *argv[]) {
 
     setbuf( stdout, NULL );
 	
-	if (argc != 4) {
-		printf("./exec dataInput.bin nTests stop_threshold (argc=%i %i)\n", argc, atoi(argv[2]));
+	if (argc != 7) {
+		printf("./exec dataInput.bin N M K nTests stop_threshold (argc=%i %i)\n", argc, atoi(argv[2]));
 		return 1;
 	}
 
 	strcpy(file_name, argv[1]);
-	int nTests         = atoi(argv[2]);
-	int stop_threshold = atoi(argv[3]);
+	int N              = atoi(argv[2]);
+	int M              = atoi(argv[3]);
+	int K              = atoi(argv[4]);
+	int nTests         = atoi(argv[5]);
+	int stop_threshold = atoi(argv[6]);
 
     printf("file=%s\nN=%i M=%i K=%i nTests=%i stop_threshold=%i\n", file_name, N, M, K, nTests, stop_threshold);
 
-	sycl::queue cpu_q{cpu_selector{}};
-	sycl::queue gpu_q{IntelGPUSelector{}};
+	constexpr int split_factor = 2;
+	int N1 = (N / split_factor);
+	int N2 = N - N1;
+	int M1 = (M / split_factor);
+	int M2 = M - M1;
+
+	queue_data qd1{N, N1, M, M1, K, cpu_selector{}};
+	queue_data qd2{N, N2, M, M2, K, IntelGPUSelector{}};
 
 	std::cout << "Running on "
-				<< cpu_q.get_device().get_info<sycl::info::device::name>()
+				<< qd1.q.get_device().get_info<sycl::info::device::name>()
 				<< std::endl
-				<< gpu_q.get_device().get_info<sycl::info::device::name>()
+				<< qd2.q.get_device().get_info<sycl::info::device::name>()
 				<< std::endl;
 
+	V                   = new C_REAL[N*M];
+	Htras               = new C_REAL[M*K];
+	W                   = new C_REAL[N*K];
     W_best              = new C_REAL[N*K];
     Htras_best          = new C_REAL[M*K];
     classification      = new unsigned char[M];
 	last_classification = new unsigned char[M];
 	consensus           = new unsigned char[M*(M-1)/2];
 
-    buffer<C_REAL, 1> b_V{range{N * M}};
-	buffer<C_REAL, 1> b_V_col1{range{N * M1}};
-	buffer<C_REAL, 1> b_V_col2{range{N * M2}};
-	init_V(b_V, b_V_col1, b_V_col2, N, M, M1, M2, file_name);
-
-	buffer<C_REAL, 1> b_WH{range{N * M}};
-	buffer<C_REAL, 1> b_WH_col1{range{N * M1}};
-	buffer<C_REAL, 1> b_WH_col2{range{N * M2}};
-
-    buffer<C_REAL, 1> b_W{range{N * K}};
-    buffer<C_REAL, 1> b_Htras{range{M * K}};
-    buffer<C_REAL, 1> b_Haux{range{M * K}};
-    buffer<C_REAL, 1> b_Waux{range{N * K}};
-    buffer<C_REAL, 1> b_acumm_W{range{K}};
-    buffer<C_REAL, 1> b_acumm_H{range{K}};
+	init_V(V, file_name, &qd1, &qd2);
 
 
 	/**********************************/
@@ -539,6 +489,9 @@ int main(int argc, char *argv[]) {
 	printMATRIX(W_best, N, K);
 
     /* Free memory used */
+	delete[] V;
+	delete[] W;
+	delete[] Htras;
 	delete[] W_best;
 	delete[] Htras_best;
 	delete[] classification;
