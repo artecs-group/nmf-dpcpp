@@ -8,12 +8,6 @@
 
 using namespace cl::sycl;
 
-constexpr access::mode sycl_read               = access::mode::read;
-constexpr access::mode sycl_write              = access::mode::write;
-constexpr access::mode sycl_read_write         = access::mode::read_write;
-constexpr access::mode sycl_discard_read_write = access::mode::discard_read_write;
-constexpr access::mode sycl_discard_write      = access::mode::discard_write;
-
 // CUDA device selector
 class CUDASelector : public device_selector {
     public:
@@ -67,8 +61,11 @@ const int NITER_TEST_CONV = 10;
 /* Spacing of floating point numbers. */
 const C_REAL eps = 2.2204e-16;
 
-void adjust_WH(queue q, buffer<C_REAL, 1> b_W, buffer<C_REAL, 1> b_Ht, int N, int M, int K);
-void V_div_WH(queue q, buffer<C_REAL, 1> b_V, buffer<C_REAL, 1> b_WH, int N, int M);
-void mult_M_div_vect(queue q, buffer<C_REAL, 1> b_M, buffer<C_REAL, 1> b_Maux, buffer<C_REAL, 1> b_acc, int M, int K);
-void accum(queue q, buffer<C_REAL, 1> b_acc, buffer<C_REAL, 1> b_X, int N, int M);
+void adjust_WH(queue q, C_REAL* W, C_REAL* Ht, int N, int M, int K);
+void V_div_WH(queue q, C_REAL* V, C_REAL* WH, int N, int M);
+void mult_M_div_vect(queue q, C_REAL* M, C_REAL* Maux, C_REAL* acc, int M, int K);
+void accum(queue q, C_REAL* acc, C_REAL* X, int N, int M);
+void copy_WH_to(queue q, C_REAL* W, C_REAL* dW, C_REAL* H, C_REAL* dH, int N, int M, int K);
+void copy_WH_from(queue q, C_REAL* W, C_REAL* dW, C_REAL* H, C_REAL* dH, int N, int M, int K);
+
 #endif

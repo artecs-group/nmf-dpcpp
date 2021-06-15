@@ -46,7 +46,7 @@ void matrix_copy2D(C_REAL* in, C_REAL* out, int nx, int ny) {
 }
 
 
-void initWH(C_REAL* W, C_REAL* Htras, int N, int N_pad, int M, int M_pad, int K) {	
+void initWH(int N, int M, int K, C_REAL* W, C_REAL* Htras) {	
 	// int seedi;
 	// FILE *fd;
 
@@ -55,13 +55,6 @@ void initWH(C_REAL* W, C_REAL* Htras, int N, int N_pad, int M, int M_pad, int K)
 	// fread(&seedi, sizeof(int), 1, fd);
 	// fclose(fd);
 	// srand(seedi);
-	srand(0);
-
-	for (int i = 0; i < N*K; i++)
-		W[i] = ((C_REAL)(rand()))/RAND_MAX;
-
-	for (int i = 0; i < M*K; i++)
-		Htras[i] = ((C_REAL)(rand()))/RAND_MAX;
 
 #ifdef DEBUG
 	/* Added to debug */
@@ -76,6 +69,14 @@ void initWH(C_REAL* W, C_REAL* Htras, int N, int N_pad, int M, int M_pad, int K)
 	fIn = fopen("h_bin.bin", "r");
 	fread(Htras, sizeof(C_REAL), size_H, fIn);
 	fclose(fIn);
+#else
+	srand(0);
+
+	for (int i = 0; i < N*K; i++)
+		W[i] = ((C_REAL)(rand()))/RAND_MAX;
+
+	for (int i = 0; i < M*K; i++)
+		Htras[i] = ((C_REAL)(rand()))/RAND_MAX;
 #endif
 
 	//std::fill(W + (N*K), W + (N_pad*K), 0);
@@ -253,36 +254,7 @@ void writeSolution(C_REAL* W, C_REAL* Ht, unsigned char* consensus, int N, int M
 }
 
 
-void nmf(int niter, 
-	queue q1,
-	queue q2, 
-	buffer<C_REAL, 1> b_V, buffer<C_REAL, 1> b_V_col1, 
-	buffer<C_REAL, 1> b_V_col2, buffer<C_REAL, 1> b_WH, 
-	buffer<C_REAL, 1> b_WH_col1, buffer<C_REAL, 1> b_WH_col2,
-	buffer<C_REAL, 1> b_W, buffer<C_REAL, 1> b_Htras, 
-    buffer<C_REAL, 1> b_Waux, buffer<C_REAL, 1> b_Haux,
-	buffer<C_REAL, 1> b_accW, buffer<C_REAL, 1> b_accH,
-	int N_pad, int M_pad)
-{
-	// Aux sub-buffers
-	buffer<C_REAL, 1> b_V_row1 { b_V, id{0}, range{ N1*M }};
-	buffer<C_REAL, 1> b_V_row2 { b_V, id{N1*M}, range{ N2*M }};
-
-	buffer<C_REAL, 1> b_WH_row1 { b_WH, id{0}, range{ N1*M }};
-	buffer<C_REAL, 1> b_WH_row2 { b_WH, id{N1*M}, range{ N2*M }};
-
-	buffer<C_REAL, 1> b_Htras1 { b_Htras, id{0}, range{ M1*K }};
-	buffer<C_REAL, 1> b_Htras2 { b_Htras, id{M1*K}, range{ M2*K }};
-
-	buffer<C_REAL, 1> b_Haux1 { b_Haux, id{0}, range{ M1*K }};
-	buffer<C_REAL, 1> b_Haux2 { b_Haux, id{M1*K}, range{ M2*K }};
-
-	buffer<C_REAL, 1> b_W1 { b_W, id{0}, range{ N1*K }};
-	buffer<C_REAL, 1> b_W2 { b_W, id{N1*K}, range{ N2*K }};
-
-	buffer<C_REAL, 1> b_Waux1 { b_Waux, id{0}, range{ N1*K }};
-	buffer<C_REAL, 1> b_Waux2 { b_Waux, id{N1*K}, range{ N2*K }};
-
+void nmf(int niter, queue_data qd1, queue_data qd2) {
 	/*************************************/
 	/*                                   */
 	/*      Main Iterative Process       */
@@ -421,6 +393,7 @@ int main(int argc, char *argv[]) {
 	consensus           = new unsigned char[M*(M-1)/2];
 
 	init_V(V, file_name, &qd1, &qd2);
+	initWH(N, M, K, W, Htras);
 
 
 	/**********************************/
@@ -429,8 +402,9 @@ int main(int argc, char *argv[]) {
 	time0 = gettime();
 
 	for(int test = 0; test < nTests; test++) {
-		/* Init W and H */
-		initWH(b_W, b_Htras, N, M, K, N_pad, M_pad);
+		/* Copy W and H to devices*/
+		copy_WH_to(qd1.q, W, qd1.W, Htras, qd1.Htras, qd1.N, qd1.M, qd1.K);
+		copy_WH_to(qd2.q, W, qd2.W, Htras, qd2.Htras, qd2.N, qd2.M, qd2.K);
 
 		niters = 2000 / NITER_TEST_CONV;
 
@@ -445,8 +419,12 @@ int main(int argc, char *argv[]) {
 				b_V_col1, b_V_col2, b_WH, b_WH_col1, b_WH_col2, b_W, 
 				b_Htras, b_Waux, b_Haux, b_acumm_W, b_acumm_H, N_pad, M_pad);
 
+			/* Copy back W and H from devices*/
+			copy_WH_from(qd1.q, W, qd1.W, Htras, qd1.Htras, qd1.N, qd1.M, qd1.K);
+			copy_WH_from(qd2.q, W, qd2.W, Htras, qd2.Htras, qd2.N, qd2.M, qd2.K);
+
 			/* Test of convergence: construct connectivity matrix */
-			get_classification(b_Htras, classification, M, K);
+			get_classification(Htras, classification, M, K);
 
 			diff = get_difference(classification, last_classification, M);
 			matrix_copy1D_uchar(classification, last_classification, M);
@@ -468,11 +446,11 @@ int main(int argc, char *argv[]) {
 		get_consensus(classification, consensus, M);
 
 		/* Get variance of the method error = |V-W*H| */
-		error = get_Error(b_V, b_W, b_Htras, N, M, K);
+		error = get_Error(V, W, Htras, N, M, K);
 		if (error < error_old) {
 			printf("Better W and H, Error %e Test=%i, Iter=%i\n", error, test, iter);
-			matrix_copy2D(b_W, W_best, N, K);
-			matrix_copy2D(b_Htras, Htras_best, M, K);
+			matrix_copy2D(W, W_best, N, K);
+			matrix_copy2D(Htras, Htras_best, M, K);
 			error_old = error;
 		}
 	}
@@ -484,9 +462,9 @@ int main(int argc, char *argv[]) {
 	printf("Final error %e \n", error);
 	
 	/* Write the solution of the problem */
-	writeSolution(W_best, Htras_best, consensus, N, M, K, nTests);
+	//writeSolution(W_best, Htras_best, consensus, N, M, K, nTests);
 
-	printMATRIX(W_best, N, K);
+	//printMATRIX(W_best, N, K);
 
     /* Free memory used */
 	delete[] V;

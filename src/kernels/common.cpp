@@ -1,9 +1,7 @@
 #include "./common.h"
 
-void adjust_WH(queue q, buffer<C_REAL, 1> b_W, buffer<C_REAL, 1> b_Ht, int N, int M, int K) {
+void adjust_WH(queue q, C_REAL* W, C_REAL* Ht, int N, int M, int K) {
     q.submit([&](handler& cgh) {
-        auto W = b_W.get_access<sycl_read_write>(cgh);
-
         cgh.parallel_for<class check_W>(range<2>(N, K), [=](id <2> ij){
             int i = ij[0];
             int j = ij[1];
@@ -14,8 +12,6 @@ void adjust_WH(queue q, buffer<C_REAL, 1> b_W, buffer<C_REAL, 1> b_Ht, int N, in
     });
 
     q.submit([&](handler& cgh) {
-        auto Ht = b_Ht.get_access<sycl_read_write>(cgh);
-        
         cgh.parallel_for<class check_Ht>(range<2>(M, K), [=](id <2> ij){
             int i = ij[0];
             int j = ij[1];
@@ -28,16 +24,13 @@ void adjust_WH(queue q, buffer<C_REAL, 1> b_W, buffer<C_REAL, 1> b_Ht, int N, in
 }
 
 
-void V_div_WH(queue q, buffer<C_REAL, 1> b_V, buffer<C_REAL, 1> b_WH, int N, int M) {
+void V_div_WH(queue q, C_REAL* V, C_REAL* WH, int N, int M) {
     int max_work_group_size = q.get_device().get_info<cl::sycl::info::device::max_work_group_size>();
     int GROUP_SIZE = max_work_group_size < N ? max_work_group_size : N;
     // adjust work-groups number 
     int remainder = (N == GROUP_SIZE) ? 0 : GROUP_SIZE - (N % GROUP_SIZE);
 
     q.submit([&](handler& cgh) {
-        auto V = b_V.get_access<sycl_read>(cgh);
-        auto WH = b_WH.get_access<sycl_read_write>(cgh);
-
         cgh.parallel_for<class V_div_WH>(nd_range(range((N+remainder) * M), range(GROUP_SIZE)), [=](nd_item<1> item){
             int i = item.get_global_id(0);
 
@@ -62,12 +55,8 @@ void V_div_WH2(queue q, C_REAL *V, C_REAL *WH, int N, int M) {
 }
 
 
-void mult_M_div_vect(queue q, buffer<C_REAL, 1> b_M, buffer<C_REAL, 1> b_Maux, buffer<C_REAL, 1> b_acc, int M, int K) {
+void mult_M_div_vect(queue q, C_REAL* M, C_REAL* Maux, C_REAL* acc, int M, int K) {
     q.submit([&](handler& cgh) {
-        auto Mat = b_M.get_access<sycl_read_write>(cgh);
-        auto Maux = b_Maux.get_access<sycl_read>(cgh);
-        auto acc = b_acc.get_access<sycl_read>(cgh);
-
         cgh.parallel_for<class mul_M_div_vect>(range<1>(M), [=](id <1> ij){
             int i = ij[0];
 
@@ -79,11 +68,9 @@ void mult_M_div_vect(queue q, buffer<C_REAL, 1> b_M, buffer<C_REAL, 1> b_Maux, b
 }
 
 
-void accum2(queue q, buffer<C_REAL, 1> b_acc, buffer<C_REAL, 1> b_X, int N, int M) {
+void accum2(queue q, C_REAL* acc, C_REAL* X, int N, int M) {
     // init acc
     q.submit([&](auto &h) {
-        auto acc = b_acc.get_access<sycl_write>(h);
-
         h.parallel_for(sycl::range<1>(M), [=](id <1> i) {
             acc[i] = 0;
         });
@@ -95,8 +82,6 @@ void accum2(queue q, buffer<C_REAL, 1> b_acc, buffer<C_REAL, 1> b_X, int N, int 
     int data_size = fixed_N * M;
 
     q.submit([&](auto &h) {
-        auto acc = b_acc.get_access<sycl_read_write>(h);
-        auto X = b_X.get_access<sycl_read>(h);
         sycl::accessor<C_REAL, 1, sycl::access::mode::read_write, sycl::access::target::local> scratch(fixed_N, h);
 
         h.parallel_for(sycl::nd_range(range(data_size), range(fixed_N)), [=](sycl::nd_item<1> item) {
@@ -133,17 +118,59 @@ void accum2(queue q, buffer<C_REAL, 1> b_acc, buffer<C_REAL, 1> b_X, int N, int 
 }
 
 
-void accum(queue q, buffer<C_REAL, 1> b_acc, buffer<C_REAL, 1> b_X, int N, int M) { 
+void accum(queue q, C_REAL* acc, C_REAL* X, int N, int M) { 
     q.submit([&](handler& h) {
-        auto acc = b_acc.get_access<sycl_read_write>(h);
-        auto X = b_X.get_access<sycl_read>(h);
-
         h.parallel_for<class accum_add_matrix>(range<1>(M), [=](id <1> j){
-
             acc[j] = 0;
             for(int i = 0; i < N; i++)
                 acc[j] += X[i*M + j];
         });
     });
+    q.wait();
+}
+
+
+void copy_WH_to(queue q, C_REAL* W, C_REAL* dW, C_REAL* H, C_REAL* dH, int N, int M, int K) {
+    q.submit([&](handler& h) {
+        h.parallel_for<class copy_W_to>(range<2>(N, K), [=](id <2> ij){
+            int i = ij[0];
+            int j = ij[1];
+
+            dW[i*K + j] = W[i*K + j];
+        });
+    });
+
+    q.submit([&](handler& h) {
+        h.parallel_for<class copy_H_to>(range<2>(M, K), [=](id <2> ij){
+            int i = ij[0];
+            int j = ij[1];
+
+            dH[i*K + j] = H[i*K + j];
+        });
+    });
+
+    q.wait();
+}
+
+
+void copy_WH_from(queue q, C_REAL* W, C_REAL* dW, C_REAL* H, C_REAL* dH, int N, int M, int K) {
+    q.submit([&](handler& h) {
+        h.parallel_for<class copy_W_from>(range<2>(N, K), [=](id <2> ij){
+            int i = ij[0];
+            int j = ij[1];
+
+            W[i*K + j] = dW[i*K + j];
+        });
+    });
+
+    q.submit([&](handler& h) {
+        h.parallel_for<class copy_H_from>(range<2>(M, K), [=](id <2> ij){
+            int i = ij[0];
+            int j = ij[1];
+
+            H[i*K + j] = dH[i*K + j];
+        });
+    });
+
     q.wait();
 }

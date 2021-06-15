@@ -3,9 +3,8 @@
 
 #include "../common.h"
 
-void bare_W_mult_H(queue q, buffer<C_REAL, 1> b_WH, buffer<C_REAL, 1> b_W, buffer<C_REAL, 1> b_Htras, int N, int M, int K);
-void bare_init_accum(queue q, buffer<C_REAL, 1> b_acc, int N) {};
-void bare_Wt_mult_WH(queue q, buffer<C_REAL, 1> b_Haux, buffer<C_REAL, 1> b_W, buffer<C_REAL, 1> b_WH, int N, int M, int K);
-void bare_WH_mult_Ht(queue q, buffer<C_REAL, 1> b_Waux, buffer<C_REAL, 1> b_WH, buffer<C_REAL, 1> b_Htras, int N, int M, int K);
+void bare_W_mult_H(queue q, C_REAL* WH, C_REAL* W, C_REAL* Htras, int N, int M, int K);
+void bare_Wt_mult_WH(queue q, C_REAL* Haux, C_REAL* W, C_REAL* WH, int N, int M, int K);
+void bare_WH_mult_Ht(queue q, C_REAL* Waux, C_REAL* WH, C_REAL* Htras, int N, int M, int K);
 
 #endif

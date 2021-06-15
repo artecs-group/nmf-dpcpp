@@ -8,8 +8,8 @@
 constexpr oneapi::mkl::transpose transA = oneapi::mkl::transpose::trans;
 constexpr oneapi::mkl::transpose transB = oneapi::mkl::transpose::nontrans;
 
-void blas_W_mult_H(queue q, buffer<C_REAL, 1> b_WH, buffer<C_REAL, 1> b_W, buffer<C_REAL, 1> b_Htras, int N, int M, int K);
-void blas_Wt_mult_WH(queue q, buffer<C_REAL, 1> b_Haux, buffer<C_REAL, 1> b_W, buffer<C_REAL, 1> b_WH, int N, int M, int K);
-void blas_WH_mult_Ht(queue q, buffer<C_REAL, 1> b_Waux, buffer<C_REAL, 1> b_WH, buffer<C_REAL, 1> b_Htras, int N, int M, int K);
+void blas_W_mult_H(queue q, C_REAL* WH, C_REAL* W, C_REAL* Htras, int N, int M, int K);
+void blas_Wt_mult_WH(queue q, C_REAL* Haux, C_REAL* W, C_REAL* WH, int N, int M, int K);
+void blas_WH_mult_Ht(queue q, C_REAL* Waux, C_REAL* WH, C_REAL* Htras, int N, int M, int K);
 
 #endif
