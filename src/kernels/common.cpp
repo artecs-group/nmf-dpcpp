@@ -20,7 +20,6 @@ void adjust_WH(queue q, C_REAL* W, C_REAL* Ht, int N, int M, int K) {
                 Ht[i*K + j] = eps;
         });
     });
-    q.wait();
 }
 
 
@@ -38,7 +37,6 @@ void V_div_WH(queue q, C_REAL* V, C_REAL* WH, int N, int M) {
                 WH[i] = sycl::native::divide(V[i], WH[i]);
         });
     });
-    q.wait();
 }
 
 
@@ -51,7 +49,6 @@ void V_div_WH2(queue q, C_REAL *V, C_REAL *WH, int N, int M) {
                 WH[i*M + j] = V[i*M + j] / WH[i*M + j];
         });
     });
-    q.wait();
 }
 
 
@@ -64,7 +61,6 @@ void mult_M_div_vect(queue q, C_REAL* M, C_REAL* Maux, C_REAL* acc, int M, int K
                 Mat[i*K + j] = Mat[i*K + j] * Maux[i*K + j] / acc[j];
         });
     });
-    q.wait();
 }
 
 
@@ -75,7 +71,6 @@ void accum2(queue q, C_REAL* acc, C_REAL* X, int N, int M) {
             acc[i] = 0;
         });
     });
-    q.wait();
     
     int max_work_group_size = q.get_device().get_info<cl::sycl::info::device::max_work_group_size>();
     int fixed_N = max_work_group_size < N ? max_work_group_size : N;
@@ -114,7 +109,6 @@ void accum2(queue q, C_REAL* acc, C_REAL* X, int N, int M) {
             }
         });
     });
-    q.wait();
 }
 
 
@@ -126,51 +120,34 @@ void accum(queue q, C_REAL* acc, C_REAL* X, int N, int M) {
                 acc[j] += X[i*M + j];
         });
     });
-    q.wait();
 }
 
 
-void copy_WH_to(queue q, C_REAL* W, C_REAL* dW, C_REAL* H, C_REAL* dH, int N, int M, int K) {
+void copy_matrix_to(queue q, C_REAL* M, C_REAL* dM, int N, int M) {
     q.submit([&](handler& h) {
-        h.parallel_for<class copy_W_to>(range<2>(N, K), [=](id <2> ij){
+        h.parallel_for<class copy_W_to>(range<2>(N, M), [=](id <2> ij){
             int i = ij[0];
             int j = ij[1];
 
-            dW[i*K + j] = W[i*K + j];
+            dM[i*M + j] = M[i*M + j];
         });
     });
-
-    q.submit([&](handler& h) {
-        h.parallel_for<class copy_H_to>(range<2>(M, K), [=](id <2> ij){
-            int i = ij[0];
-            int j = ij[1];
-
-            dH[i*K + j] = H[i*K + j];
-        });
-    });
-
-    q.wait();
 }
 
 
-void copy_WH_from(queue q, C_REAL* W, C_REAL* dW, C_REAL* H, C_REAL* dH, int N, int M, int K) {
+void copy_matrix_from(queue q, C_REAL* M, C_REAL* dM, int N, int M) {
     q.submit([&](handler& h) {
-        h.parallel_for<class copy_W_from>(range<2>(N, K), [=](id <2> ij){
+        h.parallel_for<class copy_W_from>(range<2>(N, M), [=](id <2> ij){
             int i = ij[0];
             int j = ij[1];
 
-            W[i*K + j] = dW[i*K + j];
+            M[i*M + j] = dM[i*M + j];
         });
     });
+}
 
-    q.submit([&](handler& h) {
-        h.parallel_for<class copy_H_from>(range<2>(M, K), [=](id <2> ij){
-            int i = ij[0];
-            int j = ij[1];
 
-            H[i*K + j] = dH[i*K + j];
-        });
-    });
-
-    q.wait();
+void sync_queues(int queues, queue_data* qd) {
+	for (size_t i = 0; i < queues; i++)
+		qd[i].q.wait();
 }

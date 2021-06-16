@@ -1,7 +1,7 @@
-#include"queue_data.hpp"
+#include"common.h"
 
 queue_data::queue_data(int _N, int _N_split, int _M, int _M_split, int _K, device_selector selector) {
-    q = queue{selector};
+    q = queue{selector, property::queue::in_order()};
     
     N = _N;
     N_split = _N_split;

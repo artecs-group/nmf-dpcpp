@@ -6,9 +6,6 @@ REAL        = simple # {simple, double}
 # Program flags
 PKERNEL = BARE_KERNEL
 PREAL = REAL_S
-VAR_N = 500
-VAR_M = 100
-VAR_K = 4
 
 MKL_LDFLAGS = -I${MKLROOT}/include -qmkl -fsycl-device-code-split=per_kernel
 
@@ -22,12 +19,7 @@ endif
 
 # Default compiler and flags
 CC = dpcpp
-
-ifeq ($(CC),dpcpp)
-  CFLAGS = -D$(PREAL) -D$(PKERNEL) -DVAR_N=$(VAR_N) -DVAR_M=$(VAR_M) -DVAR_K=$(VAR_K)
-else
-  CFLAGS := -std=c++11 -Wall -fsycl -D$(PKERNEL) -D$(PREAL) -DVAR_N=$(VAR_N) -DVAR_M=$(VAR_M) -DVAR_K=$(VAR_K)
-endif
+CFLAGS = -D$(PREAL) -D$(PKERNEL)
 
 # Debug Flags
 ifeq ($(DEBUG),yes)
@@ -73,7 +65,7 @@ nmf_LeeSeung.o: ./kernels/bare_kernel/bare_kernel.o \
 
 
 run: nmf
-	./nmf V.bin 1 20
+	./nmf V.bin 5000 38 2 1 20
 
 .PHONY: clean
 clean:

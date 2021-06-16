@@ -34,10 +34,22 @@ class IntelGPUSelector : public device_selector {
         }
 };
 
+
+class queue_data {
+    public:
+        queue q;
+        int N, N_split, M, M_split, K;
+        C_REAL *V_row, *V_col, *W, *Htras, *WH_row, *WH_col, *Haux, *Waux, *accH, *accW;
+
+        queue_data(int _N, int _N_split, int _M, int _M_split, int _K, device_selector selector);
+        ~queue_data();
+};
+
+
 #define RANDOM
 //#define DEBUG
-const bool verbose = false;
-const char PAD = 32;
+#define verbose false;
+#define PAD 32;
 
 #ifdef REAL_S
 #define C_REAL float
@@ -56,16 +68,16 @@ const char PAD = 32;
 #endif
 
 /* Number of iterations before testing convergence (can be adjusted) */
-const int NITER_TEST_CONV = 10;
-
+#define NITER_TEST_CONV 10;
 /* Spacing of floating point numbers. */
-const C_REAL eps = 2.2204e-16;
+#define eps 2.2204e-16;
 
 void adjust_WH(queue q, C_REAL* W, C_REAL* Ht, int N, int M, int K);
 void V_div_WH(queue q, C_REAL* V, C_REAL* WH, int N, int M);
 void mult_M_div_vect(queue q, C_REAL* M, C_REAL* Maux, C_REAL* acc, int M, int K);
 void accum(queue q, C_REAL* acc, C_REAL* X, int N, int M);
-void copy_WH_to(queue q, C_REAL* W, C_REAL* dW, C_REAL* H, C_REAL* dH, int N, int M, int K);
-void copy_WH_from(queue q, C_REAL* W, C_REAL* dW, C_REAL* H, C_REAL* dH, int N, int M, int K);
+void copy_matrix_to(queue q, C_REAL* M, C_REAL* dM, int N, int M);
+void copy_matrix_from(queue q, C_REAL* M, C_REAL* dM, int N, int M);
+void sync_queues(int queues, queue_data* qd);
 
 #endif
