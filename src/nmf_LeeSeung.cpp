@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <sys/time.h>
 #include <time.h>
+#include "./kernels/common.h"
 
 #ifdef BLAS_KERNEL
 #include "./kernels/blas_kernel/blas_kernel.h"
@@ -110,12 +111,6 @@ void printMATRIX(C_REAL *m, int I, int J) {
 void init_V(C_REAL *V, char* file_name, int queues, queue_data* qd) {
 	int N = qd[0].N;
 	int M = qd[0].M;
-	int M_split[queues];
-
-	for(int i = 0; i < queues; i++)
-		M_split[i] = ;
-	int M1 = qd1->M_split;
-	int M2 = qd2->M_split;
 
 #ifndef RANDOM
 	FILE *fIn = fopen(file_name, "r");
@@ -402,6 +397,8 @@ int main(int argc, char *argv[]) {
 	
 	double time0, time1;
 	
+	constexpr bool verbose{false};
+
 	C_REAL error;
 	C_REAL error_old = 9.99e+50;
 
@@ -421,23 +418,21 @@ int main(int argc, char *argv[]) {
 
     printf("file=%s\nN=%i M=%i K=%i nTests=%i stop_threshold=%i\n", file_name, N, M, K, nTests, stop_threshold);
 
-	constexpr int split_factor = 2;
-	int N1 = (N / split_factor);
+	int queues{2};
+	int N1 = (N / queues);
 	int N2 = N - N1;
-	int M1 = (M / split_factor);
+	int M1 = (M / queues);
 	int M2 = M - M1;
 
-	int queues{2};
-	queue_data qd[queues] = {
-		queue_data{N, N1, M, M1, K, cpu_selector{}},
-		queue_data{N, N2, M, M2, K, IntelGPUSelector{}},
+	queue_data qd[] = {
+		queue_data(N, N1, M, M1, K, queue(cpu_selector(), property::queue::in_order())),
+		queue_data(N, N2, M, M2, K, queue(IntelGPUSelector(), property::queue::in_order())),
 	};
 
-	std::cout << "Running on "
-				<< qd1.q.get_device().get_info<sycl::info::device::name>()
-				<< std::endl
-				<< qd2.q.get_device().get_info<sycl::info::device::name>()
-				<< std::endl;
+	for(int i = 0; i < queues; i++)
+		std::cout << "Running on "
+					<< qd[i].q.get_device().get_info<sycl::info::device::name>()
+					<< std::endl;
 
 	V                   = new C_REAL[N*M];
 	Htras               = new C_REAL[M*K];

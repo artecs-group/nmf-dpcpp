@@ -34,18 +34,24 @@ endif
 nmf: nmf_LeeSeung.o \
   ./kernels/bare_kernel/bare_kernel.o \
   ./kernels/blas_kernel/blas_kernel.o \
+  queue_data.o \
   ./kernels/common.o
 	$(CC) $(CFLAGS) nmf_LeeSeung.o \
     ./kernels/bare_kernel/bare_kernel.o \
     ./kernels/blas_kernel/blas_kernel.o \
+    queue_data.o \
     ./kernels/common.o \
     -o nmf $(MKL_LDFLAGS)
 
 nmf_LeeSeung.o: ./kernels/bare_kernel/bare_kernel.o \
   ./kernels/blas_kernel/blas_kernel.o \
   ./kernels/common.o \
+  queue_data.o \
   nmf_LeeSeung.cpp
 	$(CC) $(CFLAGS) nmf_LeeSeung.cpp -c -o nmf_LeeSeung.o $(MKL_LDFLAGS)
+
+queue_data.o: ./kernels/common.o
+	$(CC) $(CFLAGS) queue_data.cpp -c -o queue_data.o $(MKL_LDFLAGS)
 
 ./kernels/blas_kernel/blas_kernel.o: ./kernels/blas_kernel/blas_kernel.cpp \
   ./kernels/blas_kernel/blas_kernel.h \

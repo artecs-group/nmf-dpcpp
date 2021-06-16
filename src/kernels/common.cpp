@@ -1,5 +1,8 @@
 #include "./common.h"
 
+/* Spacing of floating point numbers. */
+constexpr C_REAL eps{2.2204e-16};
+
 void adjust_WH(queue q, C_REAL* W, C_REAL* Ht, int N, int M, int K) {
     q.submit([&](handler& cgh) {
         cgh.parallel_for<class check_W>(range<2>(N, K), [=](id <2> ij){
@@ -52,7 +55,7 @@ void V_div_WH2(queue q, C_REAL *V, C_REAL *WH, int N, int M) {
 }
 
 
-void mult_M_div_vect(queue q, C_REAL* M, C_REAL* Maux, C_REAL* acc, int M, int K) {
+void mult_M_div_vect(queue q, C_REAL* Mat, C_REAL* Maux, C_REAL* acc, int M, int K) {
     q.submit([&](handler& cgh) {
         cgh.parallel_for<class mul_M_div_vect>(range<1>(M), [=](id <1> ij){
             int i = ij[0];
@@ -123,25 +126,25 @@ void accum(queue q, C_REAL* acc, C_REAL* X, int N, int M) {
 }
 
 
-void copy_matrix_to(queue q, C_REAL* M, C_REAL* dM, int N, int M) {
+void copy_matrix_to(queue q, C_REAL* Mat, C_REAL* dMat, int N, int M) {
     q.submit([&](handler& h) {
         h.parallel_for<class copy_W_to>(range<2>(N, M), [=](id <2> ij){
             int i = ij[0];
             int j = ij[1];
 
-            dM[i*M + j] = M[i*M + j];
+            dMat[i*M + j] = Mat[i*M + j];
         });
     });
 }
 
 
-void copy_matrix_from(queue q, C_REAL* M, C_REAL* dM, int N, int M) {
+void copy_matrix_from(queue q, C_REAL* Mat, C_REAL* dMat, int N, int M) {
     q.submit([&](handler& h) {
         h.parallel_for<class copy_W_from>(range<2>(N, M), [=](id <2> ij){
             int i = ij[0];
             int j = ij[1];
 
-            M[i*M + j] = dM[i*M + j];
+            Mat[i*M + j] = dMat[i*M + j];
         });
     });
 }
