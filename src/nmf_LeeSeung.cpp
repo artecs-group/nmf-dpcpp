@@ -444,8 +444,6 @@ int main(int argc, char *argv[]) {
 	consensus           = new unsigned char[M*(M-1)/2];
 
 	init_V(V, file_name, queues, qd);
-	initWH(N, M, K, W, Htras);
-
 
 	/**********************************/
 	/******     MAIN PROGRAM     ******/
