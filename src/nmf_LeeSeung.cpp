@@ -108,7 +108,7 @@ void printMATRIX(C_REAL *m, int I, int J) {
 }
 
 
-void init_V(C_REAL *V, char* file_name, int queues, queue_data* qd) {
+void init_V(C_REAL *V, char* file_name, int n_queues, queue_data* qd) {
 	int N = qd[0].N;
 	int M = qd[0].M;
 
@@ -131,8 +131,10 @@ void init_V(C_REAL *V, char* file_name, int queues, queue_data* qd) {
 
 	// copy V by columns
 	int M_acc{0};
-	for(int q = 0; q < queues; q++) {
-		int M_split = qd[q].M_split;
+	int M_split{0};
+
+	for(int q = 0; q < n_queues; q++) {
+		M_split = qd[q].M_split;
 
 		for (int i = 0; i < N; i++)
 			for (int j = 0; j < M_split; j++)
@@ -143,7 +145,7 @@ void init_V(C_REAL *V, char* file_name, int queues, queue_data* qd) {
 
 	// copy V by rows
 	int pad{0};
-	for(int q = 0; q < queues; q++) {
+	for(int q = 0; q < n_queues; q++) {
 		std::copy(V + pad, V + (qd[q].N_split*M), qd[q].V_row);
 		pad += qd[q].N_split * M;
 	}
@@ -256,19 +258,19 @@ void writeSolution(C_REAL* W, C_REAL* Ht, unsigned char* consensus, int N, int M
 }
 
 
-void copy_WH_to(int queues, queue_data* qd, C_REAL* W, C_REAL* Htras) {
-	for (size_t i = 0; i < queues; i++) {
+void copy_WH_to(int n_queues, queue_data* qd, C_REAL* W, C_REAL* Htras) {
+	for (size_t i = 0; i < n_queues; i++) {
 		copy_matrix_to(qd[i].q, W, qd[i].W, qd[i].N, qd[i].K);
 		copy_matrix_to(qd[i].q, Htras, qd[i].Htras, qd[i].M, qd[i].K);
 	}
 }
 
 
-void copy_WH_from(int queues, queue_data* qd, C_REAL* W, C_REAL* Htras) {
+void copy_WH_from(int n_queues, queue_data* qd, C_REAL* W, C_REAL* Htras) {
 	int W_padding{0};
 	int H_padding{0};
 
-	for (size_t i = 0; i < queues; i++) {
+	for (size_t i = 0; i < n_queues; i++) {
 		copy_matrix_from(qd[i].q, W + W_padding, qd[i].W, qd[i].N_split, qd[i].K);
 		copy_matrix_from(qd[i].q, Htras + H_padding, qd[i].Htras, qd[i].M_split, qd[i].K);
 		W_padding += qd[i].N_split * qd[i].K;
@@ -277,7 +279,7 @@ void copy_WH_from(int queues, queue_data* qd, C_REAL* W, C_REAL* Htras) {
 }
 
 
-void nmf(int niter, int queues, queue_data* qd, C_REAL* W, C_REAL* Htras) {
+void nmf(int niter, int n_queues, queue_data* qd, C_REAL* W, C_REAL* Htras) {
 	/*************************************/
 	/*                                   */
 	/*      Main Iterative Process       */
@@ -291,42 +293,42 @@ void nmf(int niter, int queues, queue_data* qd, C_REAL* W, C_REAL* Htras) {
 		/*******************************************/
 
         /* WH = W*H */
-		for(int i = 0; i < queues; i++){
+		for(int i = 0; i < n_queues; i++){
 			W_mult_H(qd[i].q, qd[i].WH_col, qd[i].W, qd[i].Htras + padding, qd[i].N, qd[i].M_split, qd[i].K);
 			padding += qd[i].M_split * qd[i].K;
 		}
 
 		/* WH = (V./(W*H) */
-		for(int i = 0; i < queues; i++)
+		for(int i = 0; i < n_queues; i++)
 			V_div_WH(qd[i].q, qd[i].V_col, qd[i].WH_col, qd[i].N, qd[i].M_split);
 
 		/* Shrink into one column */
 		padding = 0;
-		for(int i = 0; i < queues; i++) {
+		for(int i = 0; i < n_queues; i++) {
         	accum(qd[i].q, qd[i].accW, qd[i].W + padding, qd[i].N_split, qd[i].K);
 			padding += qd[i].N_split * qd[i].K;
 		}
 
 		/* Haux = (W'* {V./(WH)} */
-		for(int i = 0; i < queues; i++)
+		for(int i = 0; i < n_queues; i++)
 			Wt_mult_WH(qd[i].q, qd[i].Haux, qd[i].W, qd[i].WH_col, qd[i].N, qd[i].M_split, qd[i].K);
 
 		/* H = H .* (Haux) ./ accum_W */
 		padding = 0;
-		for(int i = 0; i < queues; i++) {
+		for(int i = 0; i < n_queues; i++) {
         	mult_M_div_vect(qd[i].q, qd[i].Htras + padding, qd[i].Haux, qd[i].accW, qd[i].M_split, qd[i].K);
 			padding += qd[i].M_split * qd[i].K;
 		}
 
 		/* gather and scatter H */
 		padding = 0;
-		for (size_t i = 0; i < queues; i++) {
+		for (size_t i = 0; i < n_queues; i++) {
 			copy_matrix_from(qd[i].q, Htras + padding, qd[i].Htras, qd[i].M_split, qd[i].K);
 			padding += qd[i].M_split * qd[i].K;
 		}
-		for (size_t i = 0; i < queues; i++)
+		for (size_t i = 0; i < n_queues; i++)
 			copy_matrix_to(qd[i].q, Htras, qd[i].Htras, qd[i].M, qd[i].K);
-		//sync_queues(queues, qd);
+		//sync_queues(n_queues, qd);
 
 		/*******************************************/
 		/*** W = W .* ((V./(W*H))*H') ./ accum_H ***/
@@ -334,46 +336,46 @@ void nmf(int niter, int queues, queue_data* qd, C_REAL* W, C_REAL* Htras) {
 
 		/* WH = W*H */
 		padding = 0;
-		for(int i = 0; i < queues; i++) {
+		for(int i = 0; i < n_queues; i++) {
 			W_mult_H(qd[i].q, qd[i].WH_row, qd[i].W + padding, qd[i].Htras, qd[i].N_split, qd[i].M, qd[i].K);
 			padding += qd[i].N_split * qd[i].K;
 		}
 
 		/* WH = (V./(W*H) */
-		for(int i = 0; i < queues; i++)
+		for(int i = 0; i < n_queues; i++)
 			V_div_WH(qd[i].q, qd[i].V_row, qd[i].WH_row, qd[i].N_split, qd[i].M);
 
 		/* Waux =  {V./(W*H)} *H' */
-		for(int i = 0; i < queues; i++)
+		for(int i = 0; i < n_queues; i++)
         	WH_mult_Ht(qd[i].q, qd[i].Waux, qd[i].WH_row, qd[i].Htras, qd[i].N_split, qd[i].M, qd[i].K);
 
 		/* Shrink into one column */
 		padding = 0;
-		for(int i = 0; i < queues; i++) {
+		for(int i = 0; i < n_queues; i++) {
         	accum(qd[i].q, qd[i].accH, qd[i].Htras + padding, qd[i].M_split, qd[i].K);
 			padding += qd[i].M_split * qd[i].K;
 		}
 
 		/* W = W .* Waux ./ accum_H */
 		padding = 0;
-		for(int i = 0; i < queues; i++) {
+		for(int i = 0; i < n_queues; i++) {
 			mult_M_div_vect(qd[i].q, qd[i].W + padding, qd[i].Waux, qd[i].accH, qd[i].N_split, qd[i].K);
 			padding += qd[i].N_split * qd[i].K;
 		}
 
 		/* gather and scatter W */
 		padding = 0;
-		for (size_t i = 0; i < queues; i++) {
+		for (size_t i = 0; i < n_queues; i++) {
 			copy_matrix_from(qd[i].q, W + padding, qd[i].W, qd[i].N_split, qd[i].K);
 			padding += qd[i].N_split * qd[i].K;
 		}
-		for (size_t i = 0; i < queues; i++)
+		for (size_t i = 0; i < n_queues; i++)
 			copy_matrix_to(qd[i].q, W, qd[i].W, qd[i].N, qd[i].K);
     }
 	/* Adjust small values to avoid undeflow: h=max(h,eps);w=max(w,eps); */
 	padding = 0;
 	int padding2{0};
-	for(int i = 0; i < queues; i++) {
+	for(int i = 0; i < n_queues; i++) {
 		adjust_WH(qd[i].q, qd[i].W + padding, qd[i].Htras + padding2, qd[i].N_split, qd[i].M_split, qd[i].K);
 		padding += qd[i].N_split * qd[i].K;
 		padding2 += qd[i].M_split * qd[i].K;
@@ -418,21 +420,26 @@ int main(int argc, char *argv[]) {
 
     printf("file=%s\nN=%i M=%i K=%i nTests=%i stop_threshold=%i\n", file_name, N, M, K, nTests, stop_threshold);
 
-	int queues{2};
-	int N1 = (N / queues);
+	int n_queues{2};
+	int N1 = (N / n_queues);
 	int N2 = N - N1;
-	int M1 = (M / queues);
+	int M1 = (M / n_queues);
 	int M2 = M - M1;
 
+	std::string devices[] = {
+		"cpu",
+		"IntelGPU"
+	}; 
+
 	queue_data qd[] = {
-		queue_data(N, N1, M, M1, K, queue(cpu_selector(), property::queue::in_order())),
-		queue_data(N, N2, M, M2, K, queue(IntelGPUSelector(), property::queue::in_order())),
+		queue_data(N, N1, M, M1, K, devices[0]),
+		queue_data(N, N2, M, M2, K, devices[1])
 	};
 
-	for(int i = 0; i < queues; i++)
+	for(int i = 0; i < n_queues; i++)
 		std::cout << "Running on "
-					<< qd[i].q.get_device().get_info<sycl::info::device::name>()
-					<< std::endl;
+				  << qd[i].q.get_device().get_info<sycl::info::device::name>()
+				  << std::endl;
 
 	V                   = new C_REAL[N*M];
 	Htras               = new C_REAL[M*K];
@@ -443,7 +450,7 @@ int main(int argc, char *argv[]) {
 	last_classification = new unsigned char[M];
 	consensus           = new unsigned char[M*(M-1)/2];
 
-	init_V(V, file_name, queues, qd);
+	init_V(V, file_name, n_queues, qd);
 
 	/**********************************/
 	/******     MAIN PROGRAM     ******/
@@ -453,7 +460,9 @@ int main(int argc, char *argv[]) {
 	for(int test = 0; test < nTests; test++) {
 		/* Copy W and H to devices*/
 		initWH(N, M, K, W, Htras);
-		copy_WH_to(queues, qd, W, Htras);
+		copy_WH_to(n_queues, qd, W, Htras);
+
+		return 0;
 
 		niters = 2000 / NITER_TEST_CONV;
 
@@ -464,11 +473,11 @@ int main(int argc, char *argv[]) {
 			iter++;
 
 			/* Main Proccess of NMF Brunet */
-			nmf(NITER_TEST_CONV, queues, qd, W, Htras);
+			nmf(NITER_TEST_CONV, n_queues, qd, W, Htras);
 
 			/* Copy back W and H from devices*/
-			copy_WH_from(queues, qd, W, Htras);
-			sync_queues(queues, qd);
+			copy_WH_from(n_queues, qd, W, Htras);
+			sync_queues(n_queues, qd);
 
 			/* Test of convergence: construct connectivity matrix */
 			get_classification(Htras, classification, M, K);

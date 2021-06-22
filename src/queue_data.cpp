@@ -1,7 +1,14 @@
 #include "kernels/common.h"
 
-queue_data::queue_data(int _N, int _N_split, int _M, int _M_split, int _K, queue _q) {
-    q = _q;
+queue_data::queue_data(int _N, int _N_split, int _M, int _M_split, int _K, std::string device_name) {
+    if(!device_name.compare(std::string("IntelGPU"))){
+        IntelGPUSelector selector{};
+        q = queue(selector, property::queue::in_order());
+    }
+    else {
+        cpu_selector selector{};
+        q = queue(selector, property::queue::in_order());
+    }
     
     N = _N;
     N_split = _N_split;

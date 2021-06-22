@@ -3,7 +3,7 @@
 
 #include <stdlib.h>
 #include <math.h>
-#include <string.h>
+#include <string>
 #include <CL/sycl.hpp>
 
 using namespace cl::sycl;
@@ -64,7 +64,7 @@ class queue_data {
         int N, N_split, M, M_split, K;
         C_REAL *V_row, *V_col, *W, *Htras, *WH_row, *WH_col, *Haux, *Waux, *accH, *accW;
 
-        queue_data(int _N, int _N_split, int _M, int _M_split, int _K, queue _q);
+        queue_data(int _N, int _N_split, int _M, int _M_split, int _K, std::string device_name);
         ~queue_data();
 };
 
