@@ -29,14 +29,14 @@ queue_data::queue_data(int _N, int _N_split, int _M, int _M_split, int _K, std::
 }
 
 queue_data::~queue_data() {
-    free(W, q);
-    free(Htras, q);
-    free(WH_row, q);
-    free(WH_col, q);
-    free(V_row, q);
-    free(V_col, q);
-    free(Haux, q);
-    free(Waux, q);
-    free(accW, q);
-    free(accH, q);
+    sycl::free(W, q);
+    sycl::free(Htras, q);
+    sycl::free(WH_row, q);
+    sycl::free(WH_col, q);
+    sycl::free(V_row, q);
+    sycl::free(V_col, q);
+    sycl::free(Haux, q);
+    sycl::free(Waux, q);
+    sycl::free(accW, q);
+    sycl::free(accH, q);
 }

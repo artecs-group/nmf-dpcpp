@@ -440,8 +440,8 @@ int main(int argc, char *argv[]) {
 	};
 
 	queue_data qd[] = {
-		queue_data(N, N1, M, M1, K, devices[0]),
-		queue_data(N, N2, M, M2, K, devices[1])
+		queue_data{N, N1, M, M1, K, devices[0]},
+		queue_data{N, N2, M, M2, K, devices[1]}
 	};
 
 	for(int i = 0; i < n_queues; i++)
