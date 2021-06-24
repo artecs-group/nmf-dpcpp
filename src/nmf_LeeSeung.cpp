@@ -437,7 +437,7 @@ int main(int argc, char *argv[]) {
 	std::string devices[] = {
 		"IntelGPU",
 		"cpu"
-	}; 
+	};
 
 	queue_data qd[] = {
 		queue_data(N, N1, M, M1, K, devices[0]),

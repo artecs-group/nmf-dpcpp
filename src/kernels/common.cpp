@@ -3,6 +3,9 @@
 /* Spacing of floating point numbers. */
 constexpr C_REAL eps{2.2204e-16};
 
+int IntelGPUSelector::gpus_taken = 0;
+int IntelGPUSelector::gpu_counter = 0;
+
 void adjust_WH(queue q, C_REAL* W, C_REAL* Ht, int N, int M, int K) {
     q.submit([&](handler& cgh) {
         cgh.parallel_for<class check_W>(range<2>(N, K), [=](id <2> ij){

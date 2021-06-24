@@ -46,10 +46,10 @@ class CUDASelector : public device_selector {
 
 // Intel iGPU
 class IntelGPUSelector : public device_selector {
-    private:
-        static int gpus_taken{0};
-        static int gpu_counter{0};
     public:
+        static int gpus_taken;
+        static int gpu_counter;
+
         int operator()(const device &Device) const override {
             const std::string vendor = Device.get_info<info::device::vendor>();
 
