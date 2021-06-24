@@ -46,12 +46,22 @@ class CUDASelector : public device_selector {
 
 // Intel iGPU
 class IntelGPUSelector : public device_selector {
+    private:
+        static int gpus_taken{0};
+        static int gpu_counter{0};
     public:
         int operator()(const device &Device) const override {
             const std::string vendor = Device.get_info<info::device::vendor>();
 
-            if (Device.is_gpu() && (vendor.find("Intel(R) Corporation") != std::string::npos))
-                return 1;
+            if (Device.is_gpu() && (vendor.find("Intel(R) Corporation") != std::string::npos)) {
+                gpu_counter++;
+
+                if(gpu_counter > gpus_taken) {
+                    gpu_counter = 0;
+                    gpus_taken++;
+                    return 1;
+                }
+            }
 
             return 0;
         }
@@ -72,8 +82,6 @@ void adjust_WH(queue q, C_REAL* W, C_REAL* Ht, int N, int M, int K);
 void V_div_WH(queue q, C_REAL* V, C_REAL* WH, int N, int M);
 void mult_M_div_vect(queue q, C_REAL* Mat, C_REAL* Maux, C_REAL* acc, int M, int K);
 void accum(queue q, C_REAL* acc, C_REAL* X, int N, int M);
-void copy_matrix_to(queue q, C_REAL* Mat, C_REAL* dMat, int N, int M);
-void copy_matrix_from(queue q, C_REAL* Mat, C_REAL* dMat, int N, int M);
 void sync_queues(int queues, queue_data* qd);
 
 #endif

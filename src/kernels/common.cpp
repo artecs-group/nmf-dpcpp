@@ -126,30 +126,6 @@ void accum(queue q, C_REAL* acc, C_REAL* X, int N, int M) {
 }
 
 
-void copy_matrix_to(queue q, C_REAL* Mat, C_REAL* dMat, int N, int M) {
-    q.submit([&](handler& h) {
-        h.parallel_for<class copy_W_to>(range<2>(N, M), [=](id <2> ij){
-            int i = ij[0];
-            int j = ij[1];
-
-            dMat[i*M + j] = Mat[i*M + j];
-        });
-    });
-}
-
-
-void copy_matrix_from(queue q, C_REAL* Mat, C_REAL* dMat, int N, int M) {
-    q.submit([&](handler& h) {
-        h.parallel_for<class copy_W_from>(range<2>(N, M), [=](id <2> ij){
-            int i = ij[0];
-            int j = ij[1];
-
-            Mat[i*M + j] = dMat[i*M + j];
-        });
-    });
-}
-
-
 void sync_queues(int queues, queue_data* qd) {
 	for (size_t i = 0; i < queues; i++)
 		qd[i].q.wait();

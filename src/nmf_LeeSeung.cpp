@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <sys/time.h>
 #include <time.h>
-#include "./kernels/common.h"
 
 #ifdef BLAS_KERNEL
 #include "./kernels/blas_kernel/blas_kernel.h"
@@ -259,20 +258,28 @@ void writeSolution(C_REAL* W, C_REAL* Ht, unsigned char* consensus, int N, int M
 
 
 void copy_WH_to(int n_queues, queue_data* qd, C_REAL* W, C_REAL* Htras) {
+	int N = qd[0].N;
+	int M = qd[0].M;
+	int K = qd[0].K;
+
 	for (size_t i = 0; i < n_queues; i++) {
-		copy_matrix_to(qd[i].q, W, qd[i].W, qd[i].N, qd[i].K);
-		copy_matrix_to(qd[i].q, Htras, qd[i].Htras, qd[i].M, qd[i].K);
+		std::copy(W, W + (N*K), qd[i].W);
+		std::copy(Htras, Htras + (N*K), qd[i].Htras);
 	}
 }
 
 
 void copy_WH_from(int n_queues, queue_data* qd, C_REAL* W, C_REAL* Htras) {
+	int N = qd[0].N;
+	int M = qd[0].M;
+	int K = qd[0].K;
 	int W_padding{0};
 	int H_padding{0};
 
 	for (size_t i = 0; i < n_queues; i++) {
-		copy_matrix_from(qd[i].q, W + W_padding, qd[i].W, qd[i].N_split, qd[i].K);
-		copy_matrix_from(qd[i].q, Htras + H_padding, qd[i].Htras, qd[i].M_split, qd[i].K);
+		std::copy(qd[i].W + W_padding, qd[i].W + (qd[i].N_split * K), W + W_padding);
+		std::copy(qd[i].Htras + H_padding, qd[i].Htras + (qd[i].M_split * K), Htras + H_padding);
+
 		W_padding += qd[i].N_split * qd[i].K;
 		H_padding += qd[i].M_split * qd[i].K;
 	}
@@ -293,6 +300,7 @@ void nmf(int niter, int n_queues, queue_data* qd, C_REAL* W, C_REAL* Htras) {
 		/*******************************************/
 
         /* WH = W*H */
+		padding = 0;
 		for(int i = 0; i < n_queues; i++){
 			W_mult_H(qd[i].q, qd[i].WH_col, qd[i].W, qd[i].Htras + padding, qd[i].N, qd[i].M_split, qd[i].K);
 			padding += qd[i].M_split * qd[i].K;
@@ -323,11 +331,11 @@ void nmf(int niter, int n_queues, queue_data* qd, C_REAL* W, C_REAL* Htras) {
 		/* gather and scatter H */
 		padding = 0;
 		for (size_t i = 0; i < n_queues; i++) {
-			copy_matrix_from(qd[i].q, Htras + padding, qd[i].Htras, qd[i].M_split, qd[i].K);
+			std::copy(qd[i].Htras + padding, qd[i].Htras + (qd[i].M_split * qd[i].K), Htras + padding);
 			padding += qd[i].M_split * qd[i].K;
 		}
 		for (size_t i = 0; i < n_queues; i++)
-			copy_matrix_to(qd[i].q, Htras, qd[i].Htras, qd[i].M, qd[i].K);
+			std::copy(Htras, Htras + (qd[i].M * qd[i].K), qd[i].Htras);
 		//sync_queues(n_queues, qd);
 
 		/*******************************************/
@@ -366,11 +374,11 @@ void nmf(int niter, int n_queues, queue_data* qd, C_REAL* W, C_REAL* Htras) {
 		/* gather and scatter W */
 		padding = 0;
 		for (size_t i = 0; i < n_queues; i++) {
-			copy_matrix_from(qd[i].q, W + padding, qd[i].W, qd[i].N_split, qd[i].K);
+			std::copy(qd[i].W + padding, qd[i].W + (qd[i].N_split * qd[i].K), W + padding);
 			padding += qd[i].N_split * qd[i].K;
 		}
 		for (size_t i = 0; i < n_queues; i++)
-			copy_matrix_to(qd[i].q, W, qd[i].W, qd[i].N, qd[i].K);
+			std::copy(W, W + (qd[i].N * qd[i].K), qd[i].W);
     }
 	/* Adjust small values to avoid undeflow: h=max(h,eps);w=max(w,eps); */
 	padding = 0;
@@ -427,8 +435,8 @@ int main(int argc, char *argv[]) {
 	int M2 = M - M1;
 
 	std::string devices[] = {
-		"cpu",
-		"IntelGPU"
+		"IntelGPU",
+		"cpu"
 	}; 
 
 	queue_data qd[] = {
@@ -462,10 +470,7 @@ int main(int argc, char *argv[]) {
 		initWH(N, M, K, W, Htras);
 		copy_WH_to(n_queues, qd, W, Htras);
 
-		return 0;
-
 		niters = 2000 / NITER_TEST_CONV;
-
 		stop   = 0;
 		iter   = 0;
 		inc    = 0;

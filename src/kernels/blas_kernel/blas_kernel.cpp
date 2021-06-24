@@ -1,5 +1,8 @@
 #include "./blas_kernel.h"
 
+constexpr oneapi::mkl::transpose transA = oneapi::mkl::transpose::trans;
+constexpr oneapi::mkl::transpose transB = oneapi::mkl::transpose::nontrans;
+
 
 void blas_W_mult_H(queue q, C_REAL* WH, 
 C_REAL* W, C_REAL* Htras, int N, int M, int K) 
