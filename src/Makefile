@@ -71,7 +71,7 @@ queue_data.o: ./kernels/common.o
 
 
 run: nmf
-	./nmf V.bin 5000 38 2 1 20
+	./nmf V.bin 5000 38 2 1 20 2
 
 .PHONY: clean
 clean:

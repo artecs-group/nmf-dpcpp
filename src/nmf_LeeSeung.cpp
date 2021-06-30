@@ -414,8 +414,8 @@ int main(int argc, char *argv[]) {
 
     setbuf( stdout, NULL );
 	
-	if (argc != 7) {
-		printf("./exec dataInput.bin N M K nTests stop_threshold (argc=%i %i)\n", argc, atoi(argv[2]));
+	if (argc != 8) {
+		printf("./exec dataInput.bin N M K nTests stop_threshold queues_number (argc=%i %i)\n", argc, atoi(argv[2]));
 		return 1;
 	}
 
@@ -425,24 +425,33 @@ int main(int argc, char *argv[]) {
 	int K              = atoi(argv[4]);
 	int nTests         = atoi(argv[5]);
 	int stop_threshold = atoi(argv[6]);
+	int n_queues       = atoi(argv[7]);
 
-    printf("file=%s\nN=%i M=%i K=%i nTests=%i stop_threshold=%i\n", file_name, N, M, K, nTests, stop_threshold);
+    printf("file=%s\nN=%i M=%i K=%i nTests=%i stop_threshold=%i queues=%i\n", file_name, N, M, K, nTests, stop_threshold, n_queues);
 
-	int n_queues{2};
-	int N1 = (N / n_queues);
-	int N2 = N - N1;
-	int M1 = (M / n_queues);
-	int M2 = M - M1;
+	if(n_queues < 1) {
+		n_queues = 1;
+		std::cout << "Wrong number of queues was set, changed to " << n_queues << std::endl;
+	}
 
-	std::string devices[] = {
-		"IntelGPU",
-		"cpu"
-	};
+	// split N and M into the 
+	int N_slice[] = new int[n_queues];
+	int M_slice[] = new int[n_queues];
 
-	queue_data qd[] = {
-		queue_data{N, N1, M, M1, K, devices[0]},
-		queue_data{N, N2, M, M2, K, devices[1]}
-	};
+	std::fill(N_slice, N_slice + (n_queues - 2), (N/n_queues));
+	std::fill(M_slice, M_slice + (n_queues - 2), (M/n_queues));
+
+	N_slice[n_queues-1] = std::acumulate(N_slice, N_slice + (n_queues-2), 0);
+	M_slice[n_queues-1] = std::acumulate(M_slice, M_slice + (n_queues-2), 0);
+
+	N_slice[n_queues-1] = N - N_slice[n_queues-1];
+	M_slice[n_queues-1] = M - M_slice[n_queues-1];
+
+	// create all the queue_data
+	queue_data qd[] = new queue_data[n_queues];
+
+	for(size_t i = 0; i < queue_data; i++)
+		qd[i] = new queue_data(N, N_split[i], M, M_split[i], K, "IntelGPU");
 
 	for(int i = 0; i < n_queues; i++)
 		std::cout << "Running on "
@@ -528,6 +537,12 @@ int main(int argc, char *argv[]) {
 	//printMATRIX(W_best, N, K);
 
     /* Free memory used */
+	for(size_t i = 0; i < n_queues; i++)
+		delete qd[i];
+
+	delete[] qd;
+	delete[] N_slice;
+	delete[] M_slice;
 	delete[] V;
 	delete[] W;
 	delete[] Htras;
