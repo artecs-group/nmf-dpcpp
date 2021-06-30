@@ -415,8 +415,8 @@ int main(int argc, char *argv[]) {
 
     setbuf( stdout, NULL );
 	
-	if (argc != 8) {
-		printf("./exec dataInput.bin N M K nTests stop_threshold queues_number (argc=%i %i)\n", argc, atoi(argv[2]));
+	if (argc != 7) {
+		printf("./exec dataInput.bin N M K nTests stop_threshold (argc=%i %i)\n", argc, atoi(argv[2]));
 		return 1;
 	}
 
@@ -426,14 +426,10 @@ int main(int argc, char *argv[]) {
 	int K              = atoi(argv[4]);
 	int nTests         = atoi(argv[5]);
 	int stop_threshold = atoi(argv[6]);
-	int n_queues       = atoi(argv[7]);
 
-    printf("file=%s\nN=%i M=%i K=%i nTests=%i stop_threshold=%i queues=%i\n", file_name, N, M, K, nTests, stop_threshold, n_queues);
+    printf("file=%s\nN=%i M=%i K=%i nTests=%i stop_threshold=%i\n", file_name, N, M, K, nTests, stop_threshold);
 
-	if(n_queues < 1) {
-		n_queues = 1;
-		std::cout << "Wrong number of queues was set, changed to " << n_queues << std::endl;
-	}
+	constexpr int n_queues = 1;
 
 	// split N and M into the 
 	int* N_slice = new int[n_queues]();
@@ -453,10 +449,10 @@ int main(int argc, char *argv[]) {
 	M_slice[n_queues-1] = M - M_slice[n_queues-1];
 
 	// create all the queue_data
-	queue_data* qd = new queue_data[n_queues]();
-
-	for(int i = 0; i < n_queues; i++)
-		qd[i] = queue_data(N, N_slice[i], M, M_slice[i], K, "IntelGPU");
+	queue_data qd[] = {
+		queue_data(N, N_slice[0], M, M_slice[0], K, "IntelGPU"),
+		queue_data(N, N_slice[1], M, M_slice[1], K, "IntelGPU"),
+	};
 
 	for(int i = 0; i < n_queues; i++)
 		std::cout << "Running on "
@@ -533,7 +529,7 @@ int main(int argc, char *argv[]) {
 	/**********************************/
 	/**********************************/
 
-	printf("\n\n\n EXEC TIME %f (us).       N=%i M=%i K=%i Tests=%i (%lu)\n", time1-time0, N, M, K, nTests, sizeof(C_REAL));
+	printf("\n\n\nEXEC TIME %f (us).       N=%i M=%i K=%i Tests=%i (%lu)\n", time1-time0, N, M, K, nTests, sizeof(C_REAL));
 	printf("Final error %e \n", error);
 	
 	/* Write the solution of the problem */
@@ -542,7 +538,6 @@ int main(int argc, char *argv[]) {
 	//printMATRIX(W_best, N, K);
 
     /* Free memory used */
-	delete[] qd;
 	delete[] N_slice;
 	delete[] M_slice;
 	delete[] V;
