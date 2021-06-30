@@ -29,6 +29,9 @@ queue_data::queue_data(int _N, int _N_split, int _M, int _M_split, int _K, std::
 }
 
 queue_data::~queue_data() {
+    if(W == nullptr)
+        return;
+
     sycl::free(W, q);
     sycl::free(Htras, q);
     sycl::free(WH_row, q);

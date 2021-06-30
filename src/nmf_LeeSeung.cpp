@@ -71,10 +71,10 @@ void initWH(int N, int M, int K, C_REAL* W, C_REAL* Htras) {
 	srand(0);
 
 	for (int i = 0; i < N*K; i++)
-		W[i] = ((C_REAL)(rand()))/RAND_MAX;
+		W[i] = ((C_REAL)(rand())) / ((C_REAL) RAND_MAX);
 
 	for (int i = 0; i < M*K; i++)
-		Htras[i] = ((C_REAL)(rand()))/RAND_MAX;
+		Htras[i] = ((C_REAL)(rand())) / ((C_REAL) RAND_MAX);
 #endif
 }
 
@@ -125,7 +125,7 @@ void init_V(C_REAL *V, char* file_name, int n_queues, queue_data* qd) {
     srand( 0 );
 
     for (int i = 0; i < N*M; i++)
-        V[i] = ((C_REAL)(rand()))/RAND_MAX;
+        V[i] = ((C_REAL)(rand()))/ ((C_REAL) RAND_MAX);
 #endif
 
 	// copy V by columns
@@ -336,6 +336,7 @@ void nmf(int niter, int n_queues, queue_data* qd, C_REAL* W, C_REAL* Htras) {
 		}
 		for (size_t i = 0; i < n_queues; i++)
 			std::copy(Htras, Htras + (qd[i].M * qd[i].K), qd[i].Htras);
+		
 		//sync_queues(n_queues, qd);
 
 		/*******************************************/
@@ -435,29 +436,34 @@ int main(int argc, char *argv[]) {
 	}
 
 	// split N and M into the 
-	int N_slice[] = new int[n_queues];
-	int M_slice[] = new int[n_queues];
+	int* N_slice = new int[n_queues]();
+	int* M_slice = new int[n_queues]();
 
-	std::fill(N_slice, N_slice + (n_queues - 2), (N/n_queues));
-	std::fill(M_slice, M_slice + (n_queues - 2), (M/n_queues));
+	if(n_queues > 1) {
+		std::fill(N_slice, N_slice + (n_queues - 2), (N/n_queues));
+		std::fill(M_slice, M_slice + (n_queues - 2), (M/n_queues));
+	}
 
-	N_slice[n_queues-1] = std::acumulate(N_slice, N_slice + (n_queues-2), 0);
-	M_slice[n_queues-1] = std::acumulate(M_slice, M_slice + (n_queues-2), 0);
+	for(int i = 0; i < n_queues-1; i++) {
+		N_slice[n_queues-1] += N_slice[i];
+		M_slice[n_queues-1] += M_slice[i];
+	}
 
 	N_slice[n_queues-1] = N - N_slice[n_queues-1];
 	M_slice[n_queues-1] = M - M_slice[n_queues-1];
 
 	// create all the queue_data
-	queue_data qd[] = new queue_data[n_queues];
+	queue_data* qd = new queue_data[n_queues]();
 
-	for(size_t i = 0; i < queue_data; i++)
-		qd[i] = new queue_data(N, N_split[i], M, M_split[i], K, "IntelGPU");
+	for(int i = 0; i < n_queues; i++)
+		qd[i] = queue_data(N, N_slice[i], M, M_slice[i], K, "IntelGPU");
 
 	for(int i = 0; i < n_queues; i++)
 		std::cout << "Running on "
 				  << qd[i].q.get_device().get_info<sycl::info::device::name>()
 				  << std::endl;
 
+	// host variables
 	V                   = new C_REAL[N*M];
 	Htras               = new C_REAL[M*K];
 	W                   = new C_REAL[N*K];
@@ -468,7 +474,6 @@ int main(int argc, char *argv[]) {
 	consensus           = new unsigned char[M*(M-1)/2];
 
 	init_V(V, file_name, n_queues, qd);
-
 	/**********************************/
 	/******     MAIN PROGRAM     ******/
 	/**********************************/
@@ -537,9 +542,6 @@ int main(int argc, char *argv[]) {
 	//printMATRIX(W_best, N, K);
 
     /* Free memory used */
-	for(size_t i = 0; i < n_queues; i++)
-		delete qd[i];
-
 	delete[] qd;
 	delete[] N_slice;
 	delete[] M_slice;
