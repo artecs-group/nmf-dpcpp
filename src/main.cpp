@@ -264,7 +264,7 @@ void copy_WH_to(int n_queues, queue_data* qd, C_REAL* W, C_REAL* Htras) {
 
 	for (size_t i = 0; i < n_queues; i++) {
 		std::copy(W, W + (N*K), qd[i].W);
-		std::copy(Htras, Htras + (N*K), qd[i].Htras);
+		std::copy(Htras, Htras + (M*K), qd[i].Htras);
 	}
 }
 
