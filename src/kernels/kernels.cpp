@@ -1,10 +1,32 @@
-#include "./common.h"
+#include "./kernels.hpp"
+
+constexpr oneapi::mkl::transpose transA = oneapi::mkl::transpose::trans;
+constexpr oneapi::mkl::transpose transB = oneapi::mkl::transpose::nontrans;
 
 /* Spacing of floating point numbers. */
 constexpr C_REAL eps{2.2204e-16};
 
-int IntelGPUSelector::gpus_taken = 0;
-int IntelGPUSelector::gpu_counter = 0;
+
+void W_mult_H(queue q, C_REAL* WH, 
+C_REAL* W, C_REAL* Htras, int N, int M, int K) 
+{
+    oneapi::mkl::blas::gemm(q, transA, transB, M, N, K, 1, Htras, K, W, K, 0, WH, M);
+}
+
+
+void Wt_mult_WH(queue q, C_REAL* Haux, C_REAL* W,
+C_REAL* WH, int N, int M, int K) 
+{
+     oneapi::mkl::blas::gemm(q, transB, transA, K, M, N, 1, W, K, WH, M, 0, Haux, K);
+}
+
+
+void WH_mult_Ht(queue q, C_REAL* Waux, C_REAL* WH, 
+C_REAL* Htras, int N, int M, int K) 
+{
+    oneapi::mkl::blas::gemm(q, transB, transB, K, N, M, 1, Htras, K, WH, M, 0, Waux, K);
+}
+
 
 void adjust_WH(queue q, C_REAL* W, C_REAL* Ht, int N, int M, int K) {
     q.submit([&](handler& cgh) {
@@ -126,10 +148,4 @@ void accum(queue q, C_REAL* acc, C_REAL* X, int N, int M) {
                 acc[j] += X[i*M + j];
         });
     });
-}
-
-
-void sync_queues(int queues, queue_data* qd) {
-	for (size_t i = 0; i < queues; i++)
-		qd[i].q.wait();
 }

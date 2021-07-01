@@ -1,12 +1,12 @@
 #include <stdio.h>
 #include <sys/time.h>
 #include <time.h>
+#include "common.hpp"
+#include "./kernels/kernels.hpp"
+#include "./queue_data/queue_data.hpp"
 
-#ifdef BLAS_KERNEL
-#include "./kernels/blas_kernel/blas_kernel.h"
-#else
-#include "./kernels/bare_kernel/bare_kernel.h" //default kernels
-#endif
+int IntelGPUSelector::gpus_taken = 0;
+int IntelGPUSelector::gpu_counter = 0;
 
 
 inline int pow2roundup(int x) {
@@ -286,6 +286,12 @@ void copy_WH_from(int n_queues, queue_data* qd, C_REAL* W, C_REAL* Htras) {
 }
 
 
+void sync_queues(int queues, queue_data* qd) {
+	for (size_t i = 0; i < queues; i++)
+		qd[i].q.wait();
+}
+
+
 void nmf(int niter, int n_queues, queue_data* qd, C_REAL* W, C_REAL* Htras) {
 	/*************************************/
 	/*                                   */
@@ -427,7 +433,7 @@ int main(int argc, char *argv[]) {
 	int nTests         = atoi(argv[5]);
 	int stop_threshold = atoi(argv[6]);
 
-    printf("file=%s\nN=%i M=%i K=%i nTests=%i stop_threshold=%i\n", file_name, N, M, K, nTests, stop_threshold);
+    printf("file=%s N=%i M=%i K=%i nTests=%i stop_threshold=%i\n\n", file_name, N, M, K, nTests, stop_threshold);
 
 	constexpr int n_queues = 2;
 
@@ -457,7 +463,7 @@ int main(int argc, char *argv[]) {
 	for(int i = 0; i < n_queues; i++)
 		std::cout << "Running on "
 				  << qd[i].q.get_device().get_info<sycl::info::device::name>()
-				  << std::endl;
+				  << std::endl << std::endl;
 
 	// host variables
 	V                   = new C_REAL[N*M];
