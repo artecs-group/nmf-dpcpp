@@ -267,20 +267,15 @@ void copy_WH_to(int n_queues, queue_data* qd) {
 }
 
 
-void copy_WH_from(int n_queues, queue_data* qd, C_REAL* W, C_REAL* Htras) {
+void copy_WH_from(int n_queues, queue_data* qd) {
 	int N = qd[0].N;
 	int M = qd[0].M;
 	int K = qd[0].K;
-	int W_padding{0};
-	int H_padding{0};
+	C_REAL* W = qd[CPU_QUEUE_IND].W;
+	C_REAL* Htras = qd[CPU_QUEUE_IND].Htras;
 
-	for (size_t i = 0; i < n_queues; i++) {
-		std::copy(qd[i].W + W_padding, qd[i].W + (qd[i].N_split * K), W + W_padding);
-		std::copy(qd[i].Htras + H_padding, qd[i].Htras + (qd[i].M_split * K), Htras + H_padding);
-
-		W_padding += qd[i].N_split * qd[i].K;
-		H_padding += qd[i].M_split * qd[i].K;
-	}
+	std::copy(qd[IGPU_QUEUE_IND].W , qd[IGPU_QUEUE_IND].W + (qd[IGPU_QUEUE_IND].N_split * K), W);
+	std::copy(qd[IGPU_QUEUE_IND].Htras, qd[IGPU_QUEUE_IND].Htras + (qd[IGPU_QUEUE_IND].M_split * K), Htras);
 }
 
 
@@ -468,7 +463,7 @@ int main(int argc, char *argv[]) {
 
 	for(int test = 0; test < nTests; test++) {
 		/* Copy W and H to devices*/
-		initWH(N, M, K, W, Htras);
+		initWH(N, M, K, qd[CPU_QUEUE_IND].W, qd[CPU_QUEUE_IND].Htras);
 		copy_WH_to(n_queues, qd);
 
 		niters = 2000 / NITER_TEST_CONV;
@@ -482,7 +477,7 @@ int main(int argc, char *argv[]) {
 			nmf(NITER_TEST_CONV, n_queues, qd, W, Htras);
 
 			/* Copy back W and H from devices*/
-			copy_WH_from(n_queues, qd, W, Htras);
+			copy_WH_from(n_queues, qd);
 
 			/* Test of convergence: construct connectivity matrix */
 			get_classification(Htras, classification, M, K);
