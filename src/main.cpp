@@ -335,6 +335,8 @@ void nmf(int niter, int n_queues, queue_data* qd, C_REAL* W, C_REAL* Htras) {
 		}
 
 		/* gather and scatter H */
+		sync_queues(n_queues, qd);
+		
 		padding = 0;
 		for (size_t i = 0; i < n_queues; i++) {
 			std::copy(qd[i].Htras + padding, qd[i].Htras + (qd[i].M_split * qd[i].K), Htras + padding);
@@ -379,6 +381,8 @@ void nmf(int niter, int n_queues, queue_data* qd, C_REAL* W, C_REAL* Htras) {
 		}
 
 		/* gather and scatter W */
+		sync_queues(n_queues, qd);
+
 		padding = 0;
 		for (size_t i = 0; i < n_queues; i++) {
 			std::copy(qd[i].W + padding, qd[i].W + (qd[i].N_split * qd[i].K), W + padding);
@@ -395,6 +399,7 @@ void nmf(int niter, int n_queues, queue_data* qd, C_REAL* W, C_REAL* Htras) {
 		padding += qd[i].N_split * qd[i].K;
 		padding2 += qd[i].M_split * qd[i].K;
 	}
+	sync_queues(n_queues, qd);
 }
 
 
@@ -495,7 +500,6 @@ int main(int argc, char *argv[]) {
 
 			/* Main Proccess of NMF Brunet */
 			nmf(NITER_TEST_CONV, n_queues, qd, W, Htras);
-			sync_queues(n_queues, qd);
 
 			/* Copy back W and H from devices*/
 			copy_WH_from(n_queues, qd, W, Htras);
