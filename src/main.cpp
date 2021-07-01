@@ -257,15 +257,13 @@ void writeSolution(C_REAL* W, C_REAL* Ht, unsigned char* consensus, int N, int M
 }
 
 
-void copy_WH_to(int n_queues, queue_data* qd, C_REAL* W, C_REAL* Htras) {
-	int N = qd[0].N;
-	int M = qd[0].M;
-	int K = qd[0].K;
+void copy_WH_to(int n_queues, queue_data* qd) {
+	int N = qd[CPU_QUEUE_IND].N;
+	int M = qd[CPU_QUEUE_IND].M;
+	int K = qd[CPU_QUEUE_IND].K;
 
-	for (size_t i = 0; i < n_queues; i++) {
-		std::copy(W, W + (N*K), qd[i].W);
-		std::copy(Htras, Htras + (N*K), qd[i].Htras);
-	}
+	std::copy(qd[CPU_QUEUE_IND].W, qd[CPU_QUEUE_IND].W + (N*K), qd[IGPU_QUEUE_IND].W);
+	std::copy(qd[CPU_QUEUE_IND].Htras, qd[CPU_QUEUE_IND].Htras + (M*K), qd[IGPU_QUEUE_IND].Htras);
 }
 
 
@@ -435,29 +433,18 @@ int main(int argc, char *argv[]) {
 
     printf("file=%s N=%i M=%i K=%i nTests=%i stop_threshold=%i\n\n", file_name, N, M, K, nTests, stop_threshold);
 
-	constexpr int n_queues = 2;
+	int n_queues{2};
 
-	// split N and M into the 
-	int* N_slice = new int[n_queues]();
-	int* M_slice = new int[n_queues]();
-
-	if(n_queues > 1) {
-		std::fill(N_slice, N_slice + (n_queues - 2), (N/n_queues));
-		std::fill(M_slice, M_slice + (n_queues - 2), (M/n_queues));
-	}
-
-	for(int i = 0; i < n_queues-1; i++) {
-		N_slice[n_queues-1] += N_slice[i];
-		M_slice[n_queues-1] += M_slice[i];
-	}
-
-	N_slice[n_queues-1] = N - N_slice[n_queues-1];
-	M_slice[n_queues-1] = M - M_slice[n_queues-1];
+	// split N and M into the
+	int N_1 = N / 2;
+	int N_2 = N - N_1;
+	int M_1 = M / 2;
+	int M_2 = M - M_1;
 
 	// create all the queue_data
 	queue_data qd[] = {
-		queue_data(N, N_slice[0], M, M_slice[0], K, "IntelGPU"),
-		queue_data(N, N_slice[1], M, M_slice[1], K, "IntelGPU"),
+		queue_data(N, N_1, M, M_1, K, "IntelGPU"),
+		queue_data(N, N_2, M, M_2, K, "cpu"),
 	};
 
 	for(int i = 0; i < n_queues; i++)
@@ -467,8 +454,6 @@ int main(int argc, char *argv[]) {
 
 	// host variables
 	V                   = new C_REAL[N*M];
-	Htras               = new C_REAL[M*K];
-	W                   = new C_REAL[N*K];
     W_best              = new C_REAL[N*K];
     Htras_best          = new C_REAL[M*K];
     classification      = new unsigned char[M];
@@ -484,7 +469,7 @@ int main(int argc, char *argv[]) {
 	for(int test = 0; test < nTests; test++) {
 		/* Copy W and H to devices*/
 		initWH(N, M, K, W, Htras);
-		copy_WH_to(n_queues, qd, W, Htras);
+		copy_WH_to(n_queues, qd);
 
 		niters = 2000 / NITER_TEST_CONV;
 		stop   = 0;
@@ -498,7 +483,6 @@ int main(int argc, char *argv[]) {
 
 			/* Copy back W and H from devices*/
 			copy_WH_from(n_queues, qd, W, Htras);
-			sync_queues(n_queues, qd);
 
 			/* Test of convergence: construct connectivity matrix */
 			get_classification(Htras, classification, M, K);
@@ -544,11 +528,7 @@ int main(int argc, char *argv[]) {
 	//printMATRIX(W_best, N, K);
 
     /* Free memory used */
-	delete[] N_slice;
-	delete[] M_slice;
 	delete[] V;
-	delete[] W;
-	delete[] Htras;
 	delete[] W_best;
 	delete[] Htras_best;
 	delete[] classification;

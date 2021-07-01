@@ -22,6 +22,9 @@ using namespace cl::sycl;
 /* Number of iterations before testing convergence (can be adjusted) */
 #define NITER_TEST_CONV 10
 
+#define IGPU_QUEUE_IND 0
+#define CPU_QUEUE_IND 1
+
 // CUDA device selector
 class CUDASelector : public device_selector {
     public:
