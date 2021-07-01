@@ -285,7 +285,7 @@ void sync_queues(int queues, queue_data* qd) {
 }
 
 
-void nmf(int niter, int n_queues, queue_data* qd, C_REAL* W, C_REAL* Htras) {
+void nmf(int niter, int n_queues, queue_data* qd) {
 	/*************************************/
 	/*                                   */
 	/*      Main Iterative Process       */
@@ -304,10 +304,13 @@ void nmf(int niter, int n_queues, queue_data* qd, C_REAL* W, C_REAL* Htras) {
 			W_mult_H(qd[i].q, qd[i].WH_col, qd[i].W, qd[i].Htras + padding, qd[i].N, qd[i].M_split, qd[i].K);
 			padding += qd[i].M_split * qd[i].K;
 		}
+		qd[CPU_QUEUE_IND].q.wait();
 
 		/* WH = (V./(W*H) */
 		for(int i = 0; i < n_queues; i++)
 			V_div_WH(qd[i].q, qd[i].V_col, qd[i].WH_col, qd[i].N, qd[i].M_split);
+		
+		qd[CPU_QUEUE_IND].q.wait();
 
 		/* Shrink into one column */
 		padding = 0;
@@ -315,10 +318,13 @@ void nmf(int niter, int n_queues, queue_data* qd, C_REAL* W, C_REAL* Htras) {
         	accum(qd[i].q, qd[i].accW, qd[i].W + padding, qd[i].N_split, qd[i].K);
 			padding += qd[i].N_split * qd[i].K;
 		}
+		qd[CPU_QUEUE_IND].q.wait();
 
 		/* Haux = (W'* {V./(WH)} */
 		for(int i = 0; i < n_queues; i++)
 			Wt_mult_WH(qd[i].q, qd[i].Haux, qd[i].W, qd[i].WH_col, qd[i].N, qd[i].M_split, qd[i].K);
+
+		qd[CPU_QUEUE_IND].q.wait();
 
 		/* H = H .* (Haux) ./ accum_W */
 		padding = 0;
@@ -328,15 +334,17 @@ void nmf(int niter, int n_queues, queue_data* qd, C_REAL* W, C_REAL* Htras) {
 		}
 
 		/* gather and scatter H */
-		padding = 0;
-		for (size_t i = 0; i < n_queues; i++) {
-			std::copy(qd[i].Htras + padding, qd[i].Htras + (qd[i].M_split * qd[i].K), Htras + padding);
-			padding += qd[i].M_split * qd[i].K;
-		}
-		for (size_t i = 0; i < n_queues; i++)
-			std::copy(Htras, Htras + (qd[i].M * qd[i].K), qd[i].Htras);
-		
-		//sync_queues(n_queues, qd);
+		sync_queues(n_queues, qd);
+
+		std::copy(
+			qd[IGPU_QUEUE_IND].Htras, 
+			qd[IGPU_QUEUE_IND].Htras + (qd[IGPU_QUEUE_IND].M_split * qd[i].K), 
+			qd[CPU_QUEUE_IND].Htras);
+
+		std::copy(
+			qd[CPU_QUEUE_IND].Htras, 
+			qd[CPU_QUEUE_IND].Htras + (qd[CPU_QUEUE_IND].M * qd[CPU_QUEUE_IND].K),
+			qd[IGPU_QUEUE_IND].Htras);
 
 		/*******************************************/
 		/*** W = W .* ((V./(W*H))*H') ./ accum_H ***/
@@ -348,14 +356,19 @@ void nmf(int niter, int n_queues, queue_data* qd, C_REAL* W, C_REAL* Htras) {
 			W_mult_H(qd[i].q, qd[i].WH_row, qd[i].W + padding, qd[i].Htras, qd[i].N_split, qd[i].M, qd[i].K);
 			padding += qd[i].N_split * qd[i].K;
 		}
+		qd[CPU_QUEUE_IND].q.wait();
 
 		/* WH = (V./(W*H) */
 		for(int i = 0; i < n_queues; i++)
 			V_div_WH(qd[i].q, qd[i].V_row, qd[i].WH_row, qd[i].N_split, qd[i].M);
 
+		qd[CPU_QUEUE_IND].q.wait();
+
 		/* Waux =  {V./(W*H)} *H' */
 		for(int i = 0; i < n_queues; i++)
         	WH_mult_Ht(qd[i].q, qd[i].Waux, qd[i].WH_row, qd[i].Htras, qd[i].N_split, qd[i].M, qd[i].K);
+
+		qd[CPU_QUEUE_IND].q.wait();
 
 		/* Shrink into one column */
 		padding = 0;
@@ -363,6 +376,7 @@ void nmf(int niter, int n_queues, queue_data* qd, C_REAL* W, C_REAL* Htras) {
         	accum(qd[i].q, qd[i].accH, qd[i].Htras + padding, qd[i].M_split, qd[i].K);
 			padding += qd[i].M_split * qd[i].K;
 		}
+		qd[CPU_QUEUE_IND].q.wait();
 
 		/* W = W .* Waux ./ accum_H */
 		padding = 0;
@@ -370,15 +384,20 @@ void nmf(int niter, int n_queues, queue_data* qd, C_REAL* W, C_REAL* Htras) {
 			mult_M_div_vect(qd[i].q, qd[i].W + padding, qd[i].Waux, qd[i].accH, qd[i].N_split, qd[i].K);
 			padding += qd[i].N_split * qd[i].K;
 		}
+		qd[CPU_QUEUE_IND].q.wait();
 
 		/* gather and scatter W */
-		padding = 0;
-		for (size_t i = 0; i < n_queues; i++) {
-			std::copy(qd[i].W + padding, qd[i].W + (qd[i].N_split * qd[i].K), W + padding);
-			padding += qd[i].N_split * qd[i].K;
-		}
-		for (size_t i = 0; i < n_queues; i++)
-			std::copy(W, W + (qd[i].N * qd[i].K), qd[i].W);
+		sync_queues(n_queues, qd);
+
+		std::copy(
+			qd[IGPU_QUEUE_IND].W, 
+			qd[IGPU_QUEUE_IND].W + (qd[IGPU_QUEUE_IND].N_split * qd[IGPU_QUEUE_IND].K), 
+			qd[CPU_QUEUE_IND].W);
+
+		std::copy(
+			qd[CPU_QUEUE_IND].W,
+			qd[CPU_QUEUE_IND].W + (qd[CPU_QUEUE_IND].N * qd[CPU_QUEUE_IND].K),
+			qd[IGPU_QUEUE_IND].W);
     }
 	/* Adjust small values to avoid undeflow: h=max(h,eps);w=max(w,eps); */
 	padding = 0;
@@ -388,6 +407,8 @@ void nmf(int niter, int n_queues, queue_data* qd, C_REAL* W, C_REAL* Htras) {
 		padding += qd[i].N_split * qd[i].K;
 		padding2 += qd[i].M_split * qd[i].K;
 	}
+
+	sync_queues(n_queues, qd);
 }
 
 
@@ -474,13 +495,13 @@ int main(int argc, char *argv[]) {
 			iter++;
 
 			/* Main Proccess of NMF Brunet */
-			nmf(NITER_TEST_CONV, n_queues, qd, W, Htras);
+			nmf(NITER_TEST_CONV, n_queues, qd);
 
 			/* Copy back W and H from devices*/
 			copy_WH_from(n_queues, qd);
 
 			/* Test of convergence: construct connectivity matrix */
-			get_classification(Htras, classification, M, K);
+			get_classification(qd[CPU_QUEUE_IND].Htras, classification, M, K);
 
 			diff = get_difference(classification, last_classification, M);
 			matrix_copy1D_uchar(classification, last_classification, M);
@@ -502,11 +523,11 @@ int main(int argc, char *argv[]) {
 		get_consensus(classification, consensus, M);
 
 		/* Get variance of the method error = |V-W*H| */
-		error = get_Error(V, W, Htras, N, M, K);
+		error = get_Error(V, qd[CPU_QUEUE_IND].W, qd[CPU_QUEUE_IND].Htras, N, M, K);
 		if (error < error_old) {
 			printf("Better W and H, Error %e Test=%i, Iter=%i\n", error, test, iter);
-			matrix_copy2D(W, W_best, N, K);
-			matrix_copy2D(Htras, Htras_best, M, K);
+			matrix_copy2D(qd[CPU_QUEUE_IND].W, W_best, N, K);
+			matrix_copy2D(qd[CPU_QUEUE_IND].Htras, Htras_best, M, K);
 			error_old = error;
 		}
 	}
