@@ -338,7 +338,7 @@ void nmf(int niter, int n_queues, queue_data* qd) {
 
 		std::copy(
 			qd[IGPU_QUEUE_IND].Htras, 
-			qd[IGPU_QUEUE_IND].Htras + (qd[IGPU_QUEUE_IND].M_split * qd[i].K), 
+			qd[IGPU_QUEUE_IND].Htras + (qd[IGPU_QUEUE_IND].M_split * qd[IGPU_QUEUE_IND].K), 
 			qd[CPU_QUEUE_IND].Htras);
 
 		std::copy(
