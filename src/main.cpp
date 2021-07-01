@@ -495,10 +495,10 @@ int main(int argc, char *argv[]) {
 
 			/* Main Proccess of NMF Brunet */
 			nmf(NITER_TEST_CONV, n_queues, qd, W, Htras);
+			sync_queues(n_queues, qd);
 
 			/* Copy back W and H from devices*/
 			copy_WH_from(n_queues, qd, W, Htras);
-			sync_queues(n_queues, qd);
 
 			/* Test of convergence: construct connectivity matrix */
 			get_classification(Htras, classification, M, K);
