@@ -554,9 +554,9 @@ int main(int argc, char *argv[]) {
 
 	std::cout << std::endl 
 			<< "Total NMF time = " << nmf_total << " (us) --> 100%" << std::endl
-			<< "    total sync time = " << syn_total+mem_total << " (us) --> " << (syn_total+mem_total)/nmf_total*100 << "%" << std::endl
-			<< "        queue sync time = " << syn_total << " (us) --> " << syn_total/(syn_total+mem_total)*100 << "%" << std::endl
-			<< "        memory sync time = " << mem_total << " (us) --> " << mem_total/(syn_total+mem_total)*100 << "%" << std::endl;
+			//<< "    total sync time = " << syn_total+mem_total << " (us) --> " << (syn_total+mem_total)/nmf_total*100 << "%" << std::endl
+			//<< "        queue sync time = " << syn_total << " (us) --> " << syn_total/(syn_total+mem_total)*100 << "%" << std::endl
+			<< "    memory sync time = " << mem_total << " (us) --> " << mem_total/nmf_total*100 << "%" << std::endl;
 
 	printf("\n\n\nEXEC TIME %f (us).       N=%i M=%i K=%i Tests=%i (%lu)\n", time1-time0, N, M, K, nTests, sizeof(C_REAL));
 	printf("Final error %e \n", error);
