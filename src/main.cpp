@@ -469,7 +469,7 @@ int main(int argc, char *argv[]) {
 
     printf("file=%s N=%i M=%i K=%i nTests=%i stop_threshold=%i\n\n", file_name, N, M, K, nTests, stop_threshold);
 
-	constexpr int n_queues = 1;
+	constexpr int n_queues = 2;
 
 	// split N and M into the 
 	int* N_slice = new int[n_queues]();
