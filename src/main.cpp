@@ -343,11 +343,19 @@ void nmf(int niter, int n_queues, queue_data* qd, C_REAL* W, C_REAL* Htras) {
 		mem_t = gettime();
 		padding = 0;
 		for (size_t i = 0; i < n_queues; i++) {
-			std::copy(qd[i].Htras + padding, qd[i].Htras + (qd[i].M_split * qd[i].K), Htras + padding);
+
+			#pragma omp parallel for simd
+			for(size_t j = padding; j < qd[i].M_split * qd[i].K; j++)
+				Htras[j] = qd[i].Htras[j];	
+			//std::copy(qd[i].Htras + padding, qd[i].Htras + (qd[i].M_split * qd[i].K), Htras + padding);
 			padding += qd[i].M_split * qd[i].K;
 		}
-		for (size_t i = 0; i < n_queues; i++)
-			std::copy(Htras, Htras + (qd[i].M * qd[i].K), qd[i].Htras);
+		for (size_t i = 0; i < n_queues; i++) {
+			//std::copy(Htras, Htras + (qd[i].M * qd[i].K), qd[i].Htras);
+			#pragma omp parallel for simd
+			for (size_t j = 0; j < qd[i].M * qd[i].K; j++)
+				qd[i].Htras[j] = Htras[j];
+		}
 		
 		mem_total += gettime() - syn_t; 
 
@@ -394,11 +402,19 @@ void nmf(int niter, int n_queues, queue_data* qd, C_REAL* W, C_REAL* Htras) {
 		mem_t = gettime();
 		padding = 0;
 		for (size_t i = 0; i < n_queues; i++) {
-			std::copy(qd[i].W + padding, qd[i].W + (qd[i].N_split * qd[i].K), W + padding);
+			//std::copy(qd[i].W + padding, qd[i].W + (qd[i].N_split * qd[i].K), W + padding);
+			#pragma omp parallel for simd
+			for(size_t j = padding; j < qd[i].N_split * qd[i].K; j++)
+				W[j] = qd[i].W[j];	
+
 			padding += qd[i].N_split * qd[i].K;
 		}
-		for (size_t i = 0; i < n_queues; i++)
-			std::copy(W, W + (qd[i].N * qd[i].K), qd[i].W);
+		for (size_t i = 0; i < n_queues; i++) {
+			//std::copy(W, W + (qd[i].N * qd[i].K), qd[i].W);
+			#pragma omp parallel for simd
+			for (size_t j = 0; j < qd[i].N * qd[i].K; j++)
+				qd[i].W[j] = W[j];
+		}
 		
 		mem_total += gettime() - mem_t;
     }
@@ -453,7 +469,7 @@ int main(int argc, char *argv[]) {
 
     printf("file=%s N=%i M=%i K=%i nTests=%i stop_threshold=%i\n\n", file_name, N, M, K, nTests, stop_threshold);
 
-	constexpr int n_queues = 2;
+	constexpr int n_queues = 1;
 
 	// split N and M into the 
 	int* N_slice = new int[n_queues]();

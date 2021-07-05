@@ -6,6 +6,7 @@
 #include <string>
 #include <CL/sycl.hpp>
 #include "oneapi/mkl.hpp"
+#include <omp.h>
 
 using namespace cl::sycl;
 

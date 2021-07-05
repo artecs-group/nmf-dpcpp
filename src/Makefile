@@ -6,6 +6,7 @@ REAL        = simple # {simple, double}
 PREAL = REAL_S
 
 MKL_LDFLAGS = -I${MKLROOT}/include -qmkl -fsycl-device-code-split=per_kernel
+CLINK = -fiopenmp -fopenmp-targets=spir64  -fsycl  -L${MKLROOT}/lib/intel64 -lmkl_sycl -lmkl_intel_ilp64 -lmkl_intel_thread -lmkl_core -liomp5 -lsycl -lOpenCL -lstdc++ -lpthread -lm -ldl
 
 ifeq ($(REAL),double)
   PREAL = REAL_D
