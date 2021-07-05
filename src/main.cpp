@@ -8,6 +8,7 @@
 int IntelGPUSelector::gpus_taken = 0;
 int IntelGPUSelector::gpu_counter = 0;
 
+double nmf_t{0}, nmf_total{0}, syn_t{0}, syn_total{0}, mem_t{0}, mem_total{0};
 
 inline int pow2roundup(int x) {
     --x;
@@ -299,7 +300,7 @@ void nmf(int niter, int n_queues, queue_data* qd, C_REAL* W, C_REAL* Htras) {
 	/*                                   */
 	/*************************************/
 	int padding{0};
-
+	nmf_t = gettime();
 	for (int iter = 0; iter < niter; iter++) {
 		/*******************************************/
 		/*** H = H .* (W'*(V./(W*H))) ./ accum_W ***/
@@ -335,8 +336,11 @@ void nmf(int niter, int n_queues, queue_data* qd, C_REAL* W, C_REAL* Htras) {
 		}
 
 		/* gather and scatter H */
+		syn_t = gettime();
 		sync_queues(n_queues, qd);
+		syn_total += gettime() - syn_t;
 		
+		mem_t = gettime();
 		padding = 0;
 		for (size_t i = 0; i < n_queues; i++) {
 			std::copy(qd[i].Htras + padding, qd[i].Htras + (qd[i].M_split * qd[i].K), Htras + padding);
@@ -345,6 +349,8 @@ void nmf(int niter, int n_queues, queue_data* qd, C_REAL* W, C_REAL* Htras) {
 		for (size_t i = 0; i < n_queues; i++)
 			std::copy(Htras, Htras + (qd[i].M * qd[i].K), qd[i].Htras);
 		
+		mem_total += gettime() - syn_t; 
+
 		//sync_queues(n_queues, qd);
 
 		/*******************************************/
@@ -381,8 +387,11 @@ void nmf(int niter, int n_queues, queue_data* qd, C_REAL* W, C_REAL* Htras) {
 		}
 
 		/* gather and scatter W */
+		syn_t = gettime();
 		sync_queues(n_queues, qd);
+		syn_total += gettime() - syn_t;
 
+		mem_t = gettime();
 		padding = 0;
 		for (size_t i = 0; i < n_queues; i++) {
 			std::copy(qd[i].W + padding, qd[i].W + (qd[i].N_split * qd[i].K), W + padding);
@@ -390,7 +399,11 @@ void nmf(int niter, int n_queues, queue_data* qd, C_REAL* W, C_REAL* Htras) {
 		}
 		for (size_t i = 0; i < n_queues; i++)
 			std::copy(W, W + (qd[i].N * qd[i].K), qd[i].W);
+		
+		mem_total += gettime() - mem_t;
     }
+	nmf_total += (gettime() - nmf_t);
+
 	/* Adjust small values to avoid undeflow: h=max(h,eps);w=max(w,eps); */
 	padding = 0;
 	int padding2{0};
@@ -538,6 +551,12 @@ int main(int argc, char *argv[]) {
 	time1 = gettime();
 	/**********************************/
 	/**********************************/
+
+	std::cout << std::endl 
+			<< "Total NMF time = " << nmf_total << " (us) --> 100%" << std::endl
+			<< "    total sync time = " << syn_total+mem_total << " (us) --> " << (syn_total+mem_total)/nmf_total*100 << "%" << std::endl
+			<< "        queue sync time = " << syn_total << " (us) --> " << syn_total/(syn_total+mem_total)*100 << "%" << std::endl
+			<< "        memory sync time = " << mem_total << " (us) --> " << mem_total/(syn_total+mem_total)*100 << "%" << std::endl;
 
 	printf("\n\n\nEXEC TIME %f (us).       N=%i M=%i K=%i Tests=%i (%lu)\n", time1-time0, N, M, K, nTests, sizeof(C_REAL));
 	printf("Final error %e \n", error);
