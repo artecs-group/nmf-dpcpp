@@ -1,12 +1,8 @@
 #include <stdio.h>
 #include <sys/time.h>
 #include <time.h>
-
-#ifdef BLAS_KERNEL
-#include "./kernels/blas_kernel/blas_kernel.h"
-#else
-#include "./kernels/bare_kernel/bare_kernel.h" //default kernels
-#endif
+#include "common.hpp"
+#include "./kernels/kernels.hpp"
 
 
 inline int pow2roundup(int x) {
@@ -56,10 +52,10 @@ void initWH(C_REAL *W, C_REAL *Htras, int N, int M, int K, int N_pad, int M_pad)
 	srand(0);
 
 	for (int i = 0; i < N*K; i++)
-		W[i] = ((C_REAL)(rand()))/RAND_MAX;
+		W[i] = ((C_REAL)(rand())) / ((C_REAL) RAND_MAX);
 
 	for (int i = 0; i < M*K; i++)
-		Htras[i] = ((C_REAL)(rand()))/RAND_MAX;
+		Htras[i] = ((C_REAL)(rand())) / ((C_REAL) RAND_MAX);
 
 #ifdef DEBUG
 	/* Added to debug */
@@ -147,7 +143,7 @@ C_REAL *get_V(int N, int M, char* file_name, queue q) {
     srand( 0 );
 
     for (int i = 0; i < N*M; i++)
-        V[i] = ((C_REAL)(rand()))/RAND_MAX;
+        V[i] = ((C_REAL)(rand())) / ((C_REAL) RAND_MAX);
 #endif
 
 	return V;
@@ -304,6 +300,8 @@ int main(int argc, char *argv[]) {
 	int diff, inc;
 	
 	double time0, time1;
+
+	constexpr bool verbose{false};
 	
 	C_REAL error;
 	C_REAL error_old = 9.99e+50;
