@@ -6,7 +6,7 @@ REAL        = simple # {simple, double}
 PREAL = REAL_S
 
 MKL_LDFLAGS = -I${MKLROOT}/include -qmkl -fsycl-device-code-split=per_kernel
-CLINK = -fiopenmp -fopenmp-targets=spir64  -fsycl  -L${MKLROOT}/lib/intel64 -lmkl_sycl -lmkl_intel_ilp64 -lmkl_intel_thread -lmkl_core -liomp5 -lsycl -lOpenCL -lstdc++ -lpthread -lm -ldl
+CLINK =  -Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_intel_lp64.a ${MKLROOT}/lib/intel64/libmkl_intel_thread.a ${MKLROOT}/lib/intel64/libmkl_core.a -Wl,--end-group -liomp5 -lpthread -lm -ldl
 
 ifeq ($(REAL),double)
   PREAL = REAL_D
@@ -27,7 +27,7 @@ ifeq ($(OPTIMIZE),yes)
 endif
 
 nmf: main.o ./queue_data/queue_data.o ./kernels/kernels.o
-	$(CC) $(CFLAGS) main.o ./queue_data/queue_data.o ./kernels/kernels.o -o nmf $(MKL_LDFLAGS)
+	$(CC) $(CFLAGS) $(CLINK) main.o ./queue_data/queue_data.o ./kernels/kernels.o -o nmf $(MKL_LDFLAGS)
 
 main.o: ./kernels/kernels.o ./queue_data/queue_data.o main.cpp
 	$(CC) $(CFLAGS) main.cpp -c -o main.o $(MKL_LDFLAGS)
