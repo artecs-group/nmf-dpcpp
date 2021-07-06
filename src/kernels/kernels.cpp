@@ -1,4 +1,31 @@
-#include "./common.h"
+#include "./kernels.hpp"
+
+constexpr oneapi::mkl::transpose transA = oneapi::mkl::transpose::trans;
+constexpr oneapi::mkl::transpose transB = oneapi::mkl::transpose::nontrans;
+
+/* Spacing of floating point numbers. */
+constexpr C_REAL eps{2.2204e-16};
+
+void W_mult_H(queue q, C_REAL *WH, C_REAL *W, C_REAL *Htras, int N, int M, int K) 
+{
+    oneapi::mkl::blas::gemm(q, transA, transB, M, N, K, 1, Htras, K, W, K, 0, WH, M);
+    q.wait();
+}
+
+
+void Wt_mult_WH(queue q, C_REAL *Haux, C_REAL *W, C_REAL *WH, int N, int M, int K) 
+{
+     oneapi::mkl::blas::gemm(q, transB, transA, K, M, N, 1, W, K, WH, M, 0, Haux, K);
+     q.wait();
+}
+
+
+void WH_mult_Ht(queue q, C_REAL *Waux, C_REAL *WH, C_REAL *Htras, int N, int M, int K) 
+{
+    oneapi::mkl::blas::gemm(q, transB, transB, K, N, M, 1, Htras, K, WH, M, 0, Waux, K);
+    q.wait();
+}
+
 
 void adjust_WH(queue q, C_REAL *W, C_REAL *Ht, int N, int M, int K) {
     q.submit([&](handler& cgh) {
@@ -33,9 +60,7 @@ void V_div_WH2(queue q, C_REAL *V, C_REAL *WH, int N, int M) {
     q.submit([&](handler& cgh) {
         cgh.parallel_for<class V_div_WH>(nd_range(range((N+remainder) * M), range(GROUP_SIZE)), [=](nd_item<1> item){
             int i = item.get_global_id(0);
-
-            if(i < N*M)
-                WH[i] = sycl::native::divide(V[i], WH[i]);
+            WH[i] = sycl::native::divide(V[i], WH[i]);
         });
     });
     q.wait();
