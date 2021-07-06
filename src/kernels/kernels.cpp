@@ -60,9 +60,7 @@ void V_div_WH(queue q, C_REAL *V, C_REAL *WH, int N, int M) {
     q.submit([&](handler& cgh) {
         cgh.parallel_for<class V_div_WH>(nd_range(range((N+remainder) * M), range(GROUP_SIZE)), [=](nd_item<1> item){
             int i = item.get_global_id(0);
-
-            if(i < N*M)
-                WH[i] = sycl::native::divide(V[i], WH[i]);
+            WH[i] = sycl::native::divide(V[i], WH[i]);
         });
     });
     q.wait();
