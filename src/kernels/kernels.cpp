@@ -53,12 +53,13 @@ void adjust_WH(queue q, C_REAL *W, C_REAL *Ht, int N, int M, int K) {
 
 void V_div_WH(queue q, C_REAL *V, C_REAL *WH, int N, int M) {
     int max_work_group_size = q.get_device().get_info<cl::sycl::info::device::max_work_group_size>();
-    int GROUP_SIZE = max_work_group_size < N ? max_work_group_size : N;
+    int group_size = max_work_group_size < M ? max_work_group_size : M;
     // adjust work-groups number 
-    int remainder = (N == GROUP_SIZE) ? 0 : GROUP_SIZE - (N % GROUP_SIZE);
+    int remainder = (M == group_size) ? 0 : group_size - (M % group_size);
+    int work_items = N * (M + remainder);
 
     q.submit([&](handler& cgh) {
-        cgh.parallel_for<class V_div_WH>(nd_range(range((N+remainder) * M), range(GROUP_SIZE)), [=](nd_item<1> item){
+        cgh.parallel_for<class V_div_WH>(nd_range(range(work_items), range(group_size)), [=](nd_item<1> item){
             int i = item.get_global_id(0);
             WH[i] = sycl::native::divide(V[i], WH[i]);
         });
