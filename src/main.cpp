@@ -145,7 +145,10 @@ void init_V(C_REAL *V, char* file_name, int n_queues, queue_data* qd) {
 	// copy V by rows
 	int pad{0};
 	for(int q = 0; q < n_queues; q++) {
-		std::copy(V + pad, V + (qd[q].N_split*M), qd[q].V_row);
+		for(int i = 0; i < qd[q].N_split*M; i++)
+			qd[q].V_row[i] = V[pad + i];
+
+		//std::copy(V + pad, V + (qd[q].N_split*M), qd[q].V_row);
 		pad += qd[q].N_split * M;
 	}
 }
@@ -384,7 +387,6 @@ void nmf(int niter, int n_queues, queue_data* qd) {
 			mult_M_div_vect(qd[i].q, qd[i].W + padding, qd[i].Waux, qd[i].accH, qd[i].N_split, qd[i].K);
 			padding += qd[i].N_split * qd[i].K;
 		}
-		qd[CPU_QUEUE_IND].q.wait();
 
 		/* gather and scatter W */
 		sync_queues(n_queues, qd);
@@ -518,6 +520,10 @@ int main(int argc, char *argv[]) {
 			if (inc > stop_threshold)
 				stop = 1;
 		}
+
+		printMATRIX(qd[CPU_QUEUE_IND].Htras, M, K);
+		printMATRIX(qd[CPU_QUEUE_IND].W, N, K);
+		return 0;
 
 		/* Get Matrix consensus */
 		get_consensus(classification, consensus, M);
