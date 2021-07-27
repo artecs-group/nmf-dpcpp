@@ -104,6 +104,7 @@ void printMATRIX(C_REAL *m, int I, int J) {
 			printf("%5.4f ", m[i*J + j]);
 		printf("\n");
 	}
+	printf("--------------------- ------ --------------------\n\n");
 }
 
 
@@ -316,11 +317,9 @@ void nmf(int niter, int n_queues, queue_data* qd) {
 		qd[CPU_QUEUE_IND].q.wait();
 
 		/* Shrink into one column */
-		padding = 0;
-		for(int i = 0; i < n_queues; i++) {
-        	accum(qd[i].q, qd[i].accW, qd[i].W + padding, qd[i].N_split, qd[i].K);
-			padding += qd[i].N_split * qd[i].K;
-		}
+		for(int i = 0; i < n_queues; i++)
+        	accum(qd[i].q, qd[i].accW, qd[i].W, qd[i].N, qd[i].K);
+
 		qd[CPU_QUEUE_IND].q.wait();
 
 		/* Haux = (W'* {V./(WH)} */
@@ -374,11 +373,9 @@ void nmf(int niter, int n_queues, queue_data* qd) {
 		qd[CPU_QUEUE_IND].q.wait();
 
 		/* Shrink into one column */
-		padding = 0;
-		for(int i = 0; i < n_queues; i++) {
-        	accum(qd[i].q, qd[i].accH, qd[i].Htras + padding, qd[i].M_split, qd[i].K);
-			padding += qd[i].M_split * qd[i].K;
-		}
+		for(int i = 0; i < n_queues; i++)
+        	accum(qd[i].q, qd[i].accH, qd[i].Htras, qd[i].M, qd[i].K);
+
 		qd[CPU_QUEUE_IND].q.wait();
 
 		/* W = W .* Waux ./ accum_H */
@@ -520,10 +517,6 @@ int main(int argc, char *argv[]) {
 			if (inc > stop_threshold)
 				stop = 1;
 		}
-
-		printMATRIX(qd[CPU_QUEUE_IND].Htras, M, K);
-		printMATRIX(qd[CPU_QUEUE_IND].W, N, K);
-		return 0;
 
 		/* Get Matrix consensus */
 		get_consensus(classification, consensus, M);
