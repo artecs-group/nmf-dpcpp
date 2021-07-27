@@ -318,11 +318,8 @@ void nmf(int niter, int n_queues, queue_data* qd, C_REAL* W, C_REAL* Htras) {
 			V_div_WH(qd[i].q, qd[i].V_col, qd[i].WH_col, qd[i].N, qd[i].M_split);
 
 		/* Shrink into one column */
-		padding = 0;
-		for(int i = 0; i < n_queues; i++) {
-        	accum(qd[i].q, qd[i].accW, qd[i].W + padding, qd[i].N_split, qd[i].K);
-			padding += qd[i].N_split * qd[i].K;
-		}
+		for(int i = 0; i < n_queues; i++)
+        	accum(qd[i].q, qd[i].accW, qd[i].W, qd[i].N, qd[i].K);
 
 		/* Haux = (W'* {V./(WH)} */
 		for(int i = 0; i < n_queues; i++)
@@ -381,11 +378,8 @@ void nmf(int niter, int n_queues, queue_data* qd, C_REAL* W, C_REAL* Htras) {
         	WH_mult_Ht(qd[i].q, qd[i].Waux, qd[i].WH_row, qd[i].Htras, qd[i].N_split, qd[i].M, qd[i].K);
 
 		/* Shrink into one column */
-		padding = 0;
-		for(int i = 0; i < n_queues; i++) {
-        	accum(qd[i].q, qd[i].accH, qd[i].Htras + padding, qd[i].M_split, qd[i].K);
-			padding += qd[i].M_split * qd[i].K;
-		}
+		for(int i = 0; i < n_queues; i++)
+        	accum(qd[i].q, qd[i].accH, qd[i].Htras, qd[i].M, qd[i].K);
 
 		/* W = W .* Waux ./ accum_H */
 		padding = 0;
