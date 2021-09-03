@@ -35,14 +35,11 @@ ifeq ($(OPTIMIZE),yes)
   CFLAGS += -O3
 endif
 
-main: main.o ./nmf/nmf.o
-	$(CC) $(CFLAGS) $(CLINK) main.o ./nmf/nmf.o -o main $(MKL_LDFLAGS)
+main: main.o
+	$(CC) $(CFLAGS) $(CLINK) main.o -o main $(MKL_LDFLAGS)
 
-main.o: ./nmf/nmf.o ./main.cpp 
+main.o: ./main.cpp ./common.h
 	$(CC) $(CFLAGS) main.cpp -c -o main.o $(MKL_LDFLAGS)
-
-./nmf/nmf.o: ./common.h ./nmf/nmf.cpp
-	$(CC) $(CFLAGS) ./nmf/nmf.cpp -c -o ./nmf/nmf.o $(MKL_LDFLAGS)
 
 run: main
 	./main V.bin 5 4 2 1 20
