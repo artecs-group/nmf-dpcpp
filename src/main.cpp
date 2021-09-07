@@ -289,16 +289,14 @@ void gpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 
 			V_t = gettime();
 			/* 
-			 * num_teams = number of EUs
-			 * thread_limit = If the loop stride is 1, the optimal thread_limit is the number of hardware threads per EU (Nthreads) * Swidth. 
+			 * num_teams = number of EUs (DG1 = 96, UHD630 = 24)
+			 * thread_limit = If the loop stride is 1, the optimal thread_limit is the number of hardware threads per EU (Nthreads) * Swidth DG1(112), 630(56). 
 			 * 				  If the stride is greater than 1, then thread_limit is the first multiple of Swidth that is greater or equal to stride.
 			 */
 			#pragma omp target teams distribute parallel for simd num_teams(96) thread_limit(112)
-			for (int i = 0; i < N; i++) {
-				for (int j = 0; j < M; j++) {
-					WH[i*M + j] = V[i*M + j] / WH[i*M + j]; /* V./(W*H) */
-				}
-			}
+			for(int i = 0; i < N*M; i++)
+				WH[i] = V[i] / WH[i]; /* V./(W*H) */
+
 			V_total += (gettime() - V_t);
 
 			acc_t = gettime();
@@ -364,16 +362,14 @@ void gpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 
 			V_t = gettime();
 			/* 
-			 * num_teams = number of EUs
-			 * thread_limit = If the loop stride is 1, the optimal thread_limit is the number of hardware threads per EU (Nthreads) * Swidth. 
+			 * num_teams = number of EUs (DG1 = 96, UHD630 = 24)
+			 * thread_limit = If the loop stride is 1, the optimal thread_limit is the number of hardware threads per EU (Nthreads) * Swidth DG1(112), 630(56). 
 			 * 				  If the stride is greater than 1, then thread_limit is the first multiple of Swidth that is greater or equal to stride.
 			 */
 			#pragma omp target teams distribute parallel for simd num_teams(96) thread_limit(112)
-			for (int i = 0; i < N; i++) {
-				for (int j = 0; j < M; j++) {
-					WH[i*M + j] = V[i*M + j] / WH[i*M + j]; /* V./(W*H) */
-				}
-			}
+			for(int i = 0; i < N*M; i++)
+				WH[i] = V[i] / WH[i]; /* V./(W*H) */
+
 			V_total += (gettime() - V_t);
 
 			/* Waux =  {V./(W*H)} *H' */
