@@ -2,7 +2,7 @@
 Non-negative Matrix Factorization algorithm implemented in OpenMP
 
 ## Run
-Use these env variable to run over GPU.
+Use these env variable to run over GPU, they are optional running over CPU.
 
 `export LIBOMPTARGET_PLUGIN=OPENCL`
 
