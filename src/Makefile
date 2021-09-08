@@ -42,7 +42,7 @@ main.o: ./main.cpp ./common.h
 	$(CC) $(CFLAGS) main.cpp -c -o main.o $(MKL_LDFLAGS)
 
 run: main
-	./main V.bin 5 4 2 1 20
+	./main V.bin 5000 38 2 1 20
 
 .PHONY: clean
 clean:
