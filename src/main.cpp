@@ -4,6 +4,9 @@
 #include "common.hpp"
 #include "./kernels/kernels.hpp"
 
+double nmf_t{0}, nmf_total{0}, WH_t{0}, WH_total{0}, V_t{0}, V_total{0}, acc_t{0}, 
+	acc_total{0}, Wt_t{0}, Wt_total{0}, mulM_t{0}, mulM_total{0};
+
 
 inline int pow2roundup(int x) {
     --x;
@@ -263,26 +266,59 @@ void nmf(int niter, queue q, C_REAL *V, C_REAL *WH,
 	/*      Main Iterative Process       */
 	/*                                   */
 	/*************************************/
+
+	nmf_t = gettime();
 	for (int iter = 0; iter < niter; iter++) {
 		/*******************************************/
 		/*** H = H .* (W'*(V./(W*H))) ./ accum_W ***/
 		/*******************************************/
 
+		WH_t = gettime();
         W_mult_H(q, WH, W, Htras, N, M, K);	/* WH = W*H */
+		WH_total += (gettime() - WH_t);
+
+		V_t = gettime();
         V_div_WH(q, V, WH, N, M);			/* WH = (V./(W*H) */
+		V_total += (gettime() - V_t);
+
+		acc_t = gettime();
         accum(q, accW, W, N_pad, K); 		/* Shrink into one column */
+		acc_total += (gettime() - acc_t);
+
+		Wt_t = gettime();
         Wt_mult_WH(q, Haux, W, WH, N, M, K);	/* Haux = (W'* {V./(WH)} */
+		Wt_total += (gettime() - Wt_t);
+
+		mulM_t = gettime();
         mult_M_div_vect(q, Htras, Haux, accW, M, K);/* H = H .* (Haux) ./ accum_W */
+		mulM_total += (gettime() - mulM_t);
 
 		/*******************************************/
 		/*** W = W .* ((V./(W*H))*H') ./ accum_H ***/
 		/*******************************************/
+
+		WH_t = gettime();
         W_mult_H(q, WH, W, Htras, N, M, K);	/* WH = W*H */
+		WH_total += (gettime() - WH_t);
+
+		V_t = gettime();
         V_div_WH(q, V, WH, N, M);			/* WH = (V./(W*H) */
+		V_total += (gettime() - V_t);
+
+		Wt_t = gettime();
         WH_mult_Ht(q, Waux, WH, Htras, N, M, K);/* Waux =  {V./(W*H)} *H' */
+		Wt_total += (gettime() - Wt_t);
+
+		acc_t = gettime();
         accum(q, accH, Htras, M_pad, K);		/* Shrink into one column */
+		acc_total += (gettime() - acc_t);
+
+		mulM_t = gettime();
         mult_M_div_vect(q, W, Waux, accH, N, K);/* W = W .* Waux ./ accum_H */
+		mulM_total += (gettime() - mulM_t);
     }
+
+	nmf_total += (gettime() - nmf_t);
 }
 
 
@@ -337,10 +373,10 @@ int main(int argc, char *argv[]) {
 	sycl::queue q{selector};
 	std::cout << "Running on " << q.get_device().get_info<sycl::info::device::name>() << std::endl;
 
-	V            	  = get_V(N, M_pad, file_name, q);
+	V            	  = get_V(N, M, file_name, q);
 	W                 = malloc_shared<C_REAL>(N_pad * K, q);
 	Htras             = malloc_shared<C_REAL>(M_pad * K, q);
-	WH                = malloc_device<C_REAL>(N * M_pad, q);
+	WH                = malloc_device<C_REAL>(N * M, q);
 
 	Haux              = malloc_device<C_REAL>(M * K, q);
 	Waux              = malloc_device<C_REAL>(N * K, q);
@@ -412,6 +448,14 @@ int main(int argc, char *argv[]) {
 	time1 = gettime();
 	/**********************************/
 	/**********************************/
+
+	std::cout << std::endl 
+			<< "Total NMF time = " << nmf_total << " (us) --> 100%" << std::endl
+			<< "    W_mult_H time = " << WH_total << " (us) --> " << WH_total/nmf_total*100 << "%" << std::endl
+			<< "    V_div_WH time = " << V_total << " (us) --> " << V_total/nmf_total*100 << "%" << std::endl
+			<< "    accum time = " << acc_total << " (us) --> " << acc_total/nmf_total*100 << "%" << std::endl
+			<< "    Wt_mult_WH = " << Wt_total << " (us) --> " << Wt_total/nmf_total*100 << "%" << std::endl
+			<< "    mult_M_div_vect = " << mulM_total << " (us) --> " << mulM_total/nmf_total*100 << "%" << std::endl;
 
 	printf("\n\n\n EXEC TIME %f (us).       N=%i M=%i K=%i Tests=%i (%lu)\n", time1-time0, N, M, K, nTests, sizeof(C_REAL));
 	printf("Final error %e \n", error);
