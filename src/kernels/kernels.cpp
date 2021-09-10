@@ -150,7 +150,7 @@ void accum_gpu(queue q, C_REAL *acc, C_REAL *X, int N, int M) {
 }
 
 
-void accum_cpu(queue q, C_REAL *acc, C_REAL *X, int N, int M) { 
+void accum_cpu2(queue q, C_REAL *acc, C_REAL *X, int N, int M) { 
     q.submit([&](handler& cgh) {
         cgh.parallel_for<class accum_add_matrix>(range<1>(M), [=](id <1> j){
 
@@ -160,4 +160,14 @@ void accum_cpu(queue q, C_REAL *acc, C_REAL *X, int N, int M) {
         });
     });
     q.wait();
+}
+
+
+void accum_cpu(queue q, C_REAL *acc, C_REAL *X, int N, int M) {
+    for (int j = 0; j < M; j++){
+        acc[j] = 0;
+        for (int i = 0; i < N; i++) {
+            acc[j] += X[i*M + j];
+        }
+    }
 }
