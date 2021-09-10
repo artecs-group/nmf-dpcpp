@@ -9,8 +9,8 @@ const C_REAL eps = 2.2204e-16;
 const bool verbose = false;
 const char PAD = 32;
 
-double nmf_t{0}, nmf_total{0}, WH_t{0}, WH_total{0}, V_t{0}, V_total{0}, acc_t{0}, 
-	acc_total{0}, Wt_t{0}, Wt_total{0}, mulM_t{0}, mulM_total{0};
+double nmf_t{0}, nmf_total{0}, gemm_t{0}, gemm_total{0}, div_t{0}, div_total{0}, red_t{0}, 
+	red_total{0}, mulM_t{0}, mulM_total{0};
 
 double gettime() {
 	double final_time;
@@ -270,7 +270,7 @@ void gpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 			/*******************************************/
 
 			/* WH = W*H */
-			WH_t = gettime();
+			gemm_t = gettime();
 			#pragma omp target variant dispatch use_device_ptr(W, Htras, WH)
 			{
 				cblas_rgemm(CblasRowMajor, CblasNoTrans, CblasTrans, 
@@ -284,9 +284,9 @@ void gpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 					WH, M			/* C[m][n], num columnas (ldc) */
 				);
 			}
-			WH_total += (gettime() - WH_t);
+			gemm_total += (gettime() - gemm_t);
 
-			V_t = gettime();
+			div_t = gettime();
 			/* 
 			 * num_teams = number of EUs (DG1 = 96, UHD630 = 24)
 			 * thread_limit = If the loop stride is 1, the optimal thread_limit is the number of hardware threads per EU (Nthreads) * Swidth DG1(112), 630(56). 
@@ -300,9 +300,9 @@ void gpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 			// 	vsDiv(N*M, V, WH, WH);
 			// }
 
-			V_total += (gettime() - V_t);
+			div_total += (gettime() - div_t);
 
-			acc_t = gettime();
+			red_t = gettime();
 			/* Reducir a una columna */
 			#pragma omp target teams distribute parallel for simd
 			for(int i = 0; i < K; i++) {
@@ -315,9 +315,9 @@ void gpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 					acumm_W[j] += W[i*K + j];
 				}
 			}
-			acc_total += (gettime() - acc_t);
+			red_total += (gettime() - red_t);
 
-			Wt_t = gettime();
+			gemm_t = gettime();
 			#pragma omp target variant dispatch use_device_ptr(W, WH, Haux)
 			{
 				cblas_rgemm(CblasColMajor, CblasNoTrans, CblasTrans,
@@ -331,7 +331,7 @@ void gpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 					Haux, K			/* C[m][n], num columnas (ldc) */
 				);
 			}
-			Wt_total += (gettime() - Wt_t);
+			gemm_total += (gettime() - gemm_t);
 
 			mulM_t = gettime();
 			#pragma omp target teams distribute parallel for simd
@@ -347,7 +347,7 @@ void gpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 			/*******************************************/
 
 			/* WH = W*H */
-			WH_t = gettime();
+			gemm_t = gettime();
 			#pragma omp target variant dispatch use_device_ptr(W, Htras, WH)
 			{
 				cblas_rgemm( CblasRowMajor, CblasNoTrans, CblasTrans, 
@@ -361,9 +361,9 @@ void gpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 					WH, M			/* C[m][n], num columnas (ldc) */
 				);
 			}
-			WH_total += (gettime() - WH_t);
+			gemm_total += (gettime() - gemm_t);
 
-			V_t = gettime();
+			div_t = gettime();
 			/* 
 			 * num_teams = number of EUs (DG1 = 96, UHD630 = 24)
 			 * thread_limit = If the loop stride is 1, the optimal thread_limit is the number of hardware threads per EU (Nthreads) * Swidth DG1(112), 630(56). 
@@ -377,11 +377,11 @@ void gpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 			// 	vsDiv(N*M, V, WH, WH);
 			// }
 
-			V_total += (gettime() - V_t);
+			div_total += (gettime() - div_t);
 
 			/* Waux =  {V./(W*H)} *H' */
 			/* W = W .* Waux ./ accum_H */
-			Wt_t = gettime();
+			gemm_t = gettime();
 			#pragma omp target variant dispatch use_device_ptr(WH, Htras, Waux)
 			{
 				cblas_rgemm( CblasRowMajor, CblasNoTrans, CblasNoTrans, 
@@ -395,10 +395,10 @@ void gpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 					Waux, K			/* C[m][n], num columnas (ldc) */
 				);
 			}
-			Wt_total += (gettime() - Wt_t);
+			gemm_total += (gettime() - gemm_t);
 
 			/* Reducir a una columna */
-			acc_t = gettime();
+			red_t = gettime();
 			#pragma omp target teams distribute parallel for simd
 			for(int i = 0; i < K; i++) {
 				acumm_H[i] = 0;
@@ -410,7 +410,7 @@ void gpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 					acumm_H[j] += Htras[i*K + j];
 				}
 			}
-			acc_total += (gettime() - acc_t);
+			red_total += (gettime() - red_t);
 
 			mulM_t = gettime();
 			#pragma omp target teams distribute parallel for simd
@@ -445,7 +445,7 @@ void cpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 		/*******************************************/
 
 		/* WH = W*H */
-		WH_t = gettime();
+		gemm_t = gettime();
 		cblas_rgemm(CblasRowMajor, CblasNoTrans, CblasTrans, 
 			N,				/* [m] */ 
 			M,				/* [n] */
@@ -456,9 +456,9 @@ void cpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 			0,				/* beta */ 
 			WH, M			/* C[m][n], num columnas (ldc) */
 		);
-		WH_total += (gettime() - WH_t);
+		gemm_total += (gettime() - gemm_t);
 
-		V_t = gettime();
+		div_t = gettime();
 		
 		#pragma omp teams distribute parallel for simd
 		for(int i = 0; i < N*M; i++)
@@ -468,9 +468,9 @@ void cpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 		// 	vsDiv(N*M, V, WH, WH);
 		// }
 
-		V_total += (gettime() - V_t);
+		div_total += (gettime() - div_t);
 
-		acc_t = gettime();
+		red_t = gettime();
 		/* Reducir a una columna */
 		#pragma omp teams distribute parallel for simd
 		for(int i = 0; i < K; i++)
@@ -482,9 +482,9 @@ void cpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 				acumm_W[j] += W[i*K + j];
 			}
 		}
-		acc_total += (gettime() - acc_t);
+		red_total += (gettime() - red_t);
 
-		Wt_t = gettime();
+		gemm_t = gettime();
 		cblas_rgemm(CblasColMajor, CblasNoTrans, CblasTrans,
 			K,				/* [m] */
 			M,				/* [n] */
@@ -495,7 +495,7 @@ void cpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 			0,                      	/* beta */
 			Haux, K			/* C[m][n], num columnas (ldc) */
 		);
-		Wt_total += (gettime() - Wt_t);
+		gemm_total += (gettime() - gemm_t);
 
 		mulM_t = gettime();
 		#pragma omp teams distribute parallel for simd
@@ -511,7 +511,7 @@ void cpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 		/*******************************************/
 
 		/* WH = W*H */
-		WH_t = gettime();
+		gemm_t = gettime();
 		cblas_rgemm( CblasRowMajor, CblasNoTrans, CblasTrans, 
 			N,				/* [m] */ 
 			M, 				/* [n] */
@@ -522,9 +522,9 @@ void cpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 			0,				/* beta */ 
 			WH, M			/* C[m][n], num columnas (ldc) */
 		);
-		WH_total += (gettime() - WH_t);
+		gemm_total += (gettime() - gemm_t);
 
-		V_t = gettime();
+		div_t = gettime();
 		#pragma omp teams distribute parallel for simd
 		for(int i = 0; i < N*M; i++)
 			WH[i] = V[i] / WH[i]; /* V./(W*H) */
@@ -532,11 +532,11 @@ void cpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 		// {
 		// 	vsDiv(N*M, V, WH, WH);
 		// }
-		V_total += (gettime() - V_t);
+		div_total += (gettime() - div_t);
 
 		/* Waux =  {V./(W*H)} *H' */
 		/* W = W .* Waux ./ accum_H */
-		Wt_t = gettime();
+		gemm_t = gettime();
 		cblas_rgemm( CblasRowMajor, CblasNoTrans, CblasNoTrans, 
 			N,				/* [m] */ 
 			K, 				/* [n] */
@@ -547,10 +547,10 @@ void cpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 			0,				/* beta */ 
 			Waux, K			/* C[m][n], num columnas (ldc) */
 		);
-		Wt_total += (gettime() - Wt_t);
+		gemm_total += (gettime() - gemm_t);
 
 		/* Reducir a una columna */
-		acc_t = gettime();
+		red_t = gettime();
 		#pragma omp teams distribute parallel for simd
 		for(int i = 0; i < K; i++)
 			acumm_H[i] = 0;
@@ -561,7 +561,7 @@ void cpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 				acumm_H[j] += Htras[i*K + j];
 			}
 		}
-		acc_total += (gettime() - acc_t);
+		red_total += (gettime() - red_t);
 
 		mulM_t = gettime();
 		#pragma omp teams distribute parallel for simd
@@ -694,11 +694,10 @@ int main(int argc, char *argv[]) {
 
 	std::cout << std::endl 
 			<< "Total NMF time = " << nmf_total << " (us) --> 100%" << std::endl
-			<< "    W_mult_H time = " << WH_total << " (us) --> " << WH_total/nmf_total*100 << "%" << std::endl
-			<< "    V_div_WH time = " << V_total << " (us) --> " << V_total/nmf_total*100 << "%" << std::endl
-			<< "    accum time = " << acc_total << " (us) --> " << acc_total/nmf_total*100 << "%" << std::endl
-			<< "    Wt_mult_WH = " << Wt_total << " (us) --> " << Wt_total/nmf_total*100 << "%" << std::endl
-			<< "    mult_M_div_vect = " << mulM_total << " (us) --> " << mulM_total/nmf_total*100 << "%" << std::endl;
+			<< "    Gemm time = " << gemm_total << " (us) --> " << gemm_total/nmf_total*100 << "%" << std::endl
+			<< "    Division time = " << div_total << " (us) --> " << div_total/nmf_total*100 << "%" << std::endl
+			<< "    Reduction time = " << red_total << " (us) --> " << red_total/nmf_total*100 << "%" << std::endl
+			<< "    Mult elem by elem time = " << mulM_total << " (us) --> " << mulM_total/nmf_total*100 << "%" << std::endl;
 
 	printf("\n\n\n EXEC TIME %f (us).       N=%i M=%i K=%i Tests=%i (%lu)\n", time1-time0, N, M, K, nTests, sizeof(C_REAL));
 	printf("Final error %e \n", error);
