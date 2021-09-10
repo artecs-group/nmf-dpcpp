@@ -9,7 +9,7 @@ const C_REAL eps = 2.2204e-16;
 const bool verbose = false;
 const char PAD = 32;
 
-double nmf_t{0}, nmf_total{0}, gemm_t{0}, gemm_total{0}, div_t{0}, div_total{0}, red_t{0}, 
+double nmf_t{0}, nmf_total{0}, gemm_t{0}, gemm_total{0}, division_t{0}, div_total{0}, red_t{0}, 
 	red_total{0}, mulM_t{0}, mulM_total{0};
 
 double gettime() {
@@ -286,7 +286,7 @@ void gpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 			}
 			gemm_total += (gettime() - gemm_t);
 
-			div_t = gettime();
+			division_t = gettime();
 			/* 
 			 * num_teams = number of EUs (DG1 = 96, UHD630 = 24)
 			 * thread_limit = If the loop stride is 1, the optimal thread_limit is the number of hardware threads per EU (Nthreads) * Swidth DG1(112), 630(56). 
@@ -300,7 +300,7 @@ void gpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 			// 	vsDiv(N*M, V, WH, WH);
 			// }
 
-			div_total += (gettime() - div_t);
+			div_total += (gettime() - division_t);
 
 			red_t = gettime();
 			/* Reducir a una columna */
@@ -363,7 +363,7 @@ void gpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 			}
 			gemm_total += (gettime() - gemm_t);
 
-			div_t = gettime();
+			division_t = gettime();
 			/* 
 			 * num_teams = number of EUs (DG1 = 96, UHD630 = 24)
 			 * thread_limit = If the loop stride is 1, the optimal thread_limit is the number of hardware threads per EU (Nthreads) * Swidth DG1(112), 630(56). 
@@ -377,7 +377,7 @@ void gpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 			// 	vsDiv(N*M, V, WH, WH);
 			// }
 
-			div_total += (gettime() - div_t);
+			div_total += (gettime() - division_t);
 
 			/* Waux =  {V./(W*H)} *H' */
 			/* W = W .* Waux ./ accum_H */
@@ -458,7 +458,7 @@ void cpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 		);
 		gemm_total += (gettime() - gemm_t);
 
-		div_t = gettime();
+		division_t = gettime();
 		
 		#pragma omp teams distribute parallel for simd
 		for(int i = 0; i < N*M; i++)
@@ -468,7 +468,7 @@ void cpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 		// 	vsDiv(N*M, V, WH, WH);
 		// }
 
-		div_total += (gettime() - div_t);
+		div_total += (gettime() - division_t);
 
 		red_t = gettime();
 		/* Reducir a una columna */
@@ -524,7 +524,7 @@ void cpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 		);
 		gemm_total += (gettime() - gemm_t);
 
-		div_t = gettime();
+		division_t = gettime();
 		#pragma omp teams distribute parallel for simd
 		for(int i = 0; i < N*M; i++)
 			WH[i] = V[i] / WH[i]; /* V./(W*H) */
@@ -532,7 +532,7 @@ void cpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 		// {
 		// 	vsDiv(N*M, V, WH, WH);
 		// }
-		div_total += (gettime() - div_t);
+		div_total += (gettime() - division_t);
 
 		/* Waux =  {V./(W*H)} *H' */
 		/* W = W .* Waux ./ accum_H */
