@@ -26,6 +26,10 @@ An example to run it could be:
 
 `./nmf V.bin 1000 500 4 1 10`
 
+Running on a hyper-threding CPU could reduce performance, to disable it you can use the following variable set to the number of phisical cores on the CPU.
+
+`export DPCPP_CPU_NUM_CUS=12`
+
 ## Publications
 
 * Igual, Francisco D., et al. "Non-negative matrix factorization on low-power architectures and accelerators: A comparative study." Computers & Electrical Engineering 46 (2015): 139-156.
