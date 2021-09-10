@@ -472,12 +472,8 @@ void cpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 
 		red_t = gettime();
 		/* Reducir a una columna */
-		#pragma omp teams distribute parallel for simd
-		for(int i = 0; i < K; i++)
-			acumm_W[i] = 0;
-
 		for (int j = 0; j < K; j++){
-			//#pragma omp teams distribute parallel for simd reduction(+:acumm_W[j])
+			acumm_W[j] = 0;
 			for (int i = 0; i < N; i++) {
 				acumm_W[j] += W[i*K + j];
 			}
@@ -551,12 +547,8 @@ void cpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 
 		/* Reducir a una columna */
 		red_t = gettime();
-		#pragma omp teams distribute parallel for simd
-		for(int i = 0; i < K; i++)
-			acumm_H[i] = 0;
-
 		for (int j = 0; j < K; j++){
-			//#pragma omp teams distribute parallel for simd reduction(+:acumm_H[j])
+			acumm_H[j] = 0;
 			for (int i = 0; i < M; i++) {
 				acumm_H[j] += Htras[i*K + j];
 			}
