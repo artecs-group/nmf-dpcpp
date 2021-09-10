@@ -4,8 +4,8 @@
 #include "common.hpp"
 #include "./kernels/kernels.hpp"
 
-double nmf_t{0}, nmf_total{0}, WH_t{0}, WH_total{0}, V_t{0}, V_total{0}, acc_t{0}, 
-	acc_total{0}, Wt_t{0}, Wt_total{0}, mulM_t{0}, mulM_total{0};
+double nmf_t{0}, nmf_total{0}, gemm_t{0}, gemm_total{0}, div_t{0}, div_total{0}, red_t{0}, 
+	red_total{0}, mulM_t{0}, mulM_total{0};
 
 
 inline int pow2roundup(int x) {
@@ -273,21 +273,21 @@ void nmf(int niter, queue q, C_REAL *V, C_REAL *WH,
 		/*** H = H .* (W'*(V./(W*H))) ./ accum_W ***/
 		/*******************************************/
 
-		WH_t = gettime();
+		gemm_t = gettime();
         W_mult_H(q, WH, W, Htras, N, M, K);	/* WH = W*H */
-		WH_total += (gettime() - WH_t);
+		gemm_total += (gettime() - gemm_t);
 
-		V_t = gettime();
+		div_t = gettime();
         V_div_WH(q, V, WH, N, M);			/* WH = (V./(W*H) */
-		V_total += (gettime() - V_t);
+		div_total += (gettime() - div_t);
 
-		acc_t = gettime();
+		red_t = gettime();
         accum(q, accW, W, N_pad, K); 		/* Shrink into one column */
-		acc_total += (gettime() - acc_t);
+		red_total += (gettime() - red_t);
 
-		Wt_t = gettime();
+		gemm_t = gettime();
         Wt_mult_WH(q, Haux, W, WH, N, M, K);	/* Haux = (W'* {V./(WH)} */
-		Wt_total += (gettime() - Wt_t);
+		gemm_total += (gettime() - gemm_t);
 
 		mulM_t = gettime();
         mult_M_div_vect(q, Htras, Haux, accW, M, K);/* H = H .* (Haux) ./ accum_W */
@@ -297,21 +297,21 @@ void nmf(int niter, queue q, C_REAL *V, C_REAL *WH,
 		/*** W = W .* ((V./(W*H))*H') ./ accum_H ***/
 		/*******************************************/
 
-		WH_t = gettime();
+		gemm_t = gettime();
         W_mult_H(q, WH, W, Htras, N, M, K);	/* WH = W*H */
-		WH_total += (gettime() - WH_t);
+		gemm_total += (gettime() - gemm_t);
 
-		V_t = gettime();
+		div_t = gettime();
         V_div_WH(q, V, WH, N, M);			/* WH = (V./(W*H) */
-		V_total += (gettime() - V_t);
+		div_total += (gettime() - div_t);
 
-		Wt_t = gettime();
+		gemm_t = gettime();
         WH_mult_Ht(q, Waux, WH, Htras, N, M, K);/* Waux =  {V./(W*H)} *H' */
-		Wt_total += (gettime() - Wt_t);
+		gemm_total += (gettime() - gemm_t);
 
-		acc_t = gettime();
+		red_t = gettime();
         accum(q, accH, Htras, M_pad, K);		/* Shrink into one column */
-		acc_total += (gettime() - acc_t);
+		red_total += (gettime() - red_t);
 
 		mulM_t = gettime();
         mult_M_div_vect(q, W, Waux, accH, N, K);/* W = W .* Waux ./ accum_H */
@@ -451,11 +451,10 @@ int main(int argc, char *argv[]) {
 
 	std::cout << std::endl 
 			<< "Total NMF time = " << nmf_total << " (us) --> 100%" << std::endl
-			<< "    W_mult_H time = " << WH_total << " (us) --> " << WH_total/nmf_total*100 << "%" << std::endl
-			<< "    V_div_WH time = " << V_total << " (us) --> " << V_total/nmf_total*100 << "%" << std::endl
-			<< "    accum time = " << acc_total << " (us) --> " << acc_total/nmf_total*100 << "%" << std::endl
-			<< "    Wt_mult_WH = " << Wt_total << " (us) --> " << Wt_total/nmf_total*100 << "%" << std::endl
-			<< "    mult_M_div_vect = " << mulM_total << " (us) --> " << mulM_total/nmf_total*100 << "%" << std::endl;
+			<< "    Gemm time = " << gemm_total << " (us) --> " << gemm_total/nmf_total*100 << "%" << std::endl
+			<< "    Division time = " << div_total << " (us) --> " << div_total/nmf_total*100 << "%" << std::endl
+			<< "    Reduction time = " << red_total << " (us) --> " << red_total/nmf_total*100 << "%" << std::endl
+			<< "    Mult elem by elem time = " << mulM_total << " (us) --> " << mulM_total/nmf_total*100 << "%" << std::endl;
 
 	printf("\n\n\n EXEC TIME %f (us).       N=%i M=%i K=%i Tests=%i (%lu)\n", time1-time0, N, M, K, nTests, sizeof(C_REAL));
 	printf("Final error %e \n", error);

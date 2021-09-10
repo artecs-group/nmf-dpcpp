@@ -100,7 +100,7 @@ void mult_M_div_vect(queue q, C_REAL *Mat, C_REAL *Maux, C_REAL *acc, int M, int
 }
 
 
-void accum(queue q, C_REAL *acc, C_REAL *X, int N, int M) {
+void accum_gpu(queue q, C_REAL *acc, C_REAL *X, int N, int M) {
     // init acc
     q.submit([&](auto &h) {
         h.parallel_for(sycl::range<1>(M), [=](id <1> i) {
@@ -150,7 +150,7 @@ void accum(queue q, C_REAL *acc, C_REAL *X, int N, int M) {
 }
 
 
-void accum2(queue q, C_REAL *acc, C_REAL *X, int N, int M) { 
+void accum_cpu(queue q, C_REAL *acc, C_REAL *X, int N, int M) { 
     q.submit([&](handler& cgh) {
         cgh.parallel_for<class accum_add_matrix>(range<1>(M), [=](id <1> j){
 
