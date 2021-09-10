@@ -4,7 +4,7 @@
 #include "common.hpp"
 #include "./kernels/kernels.hpp"
 
-double nmf_t{0}, nmf_total{0}, gemm_t{0}, gemm_total{0}, div_t{0}, div_total{0}, red_t{0}, 
+double nmf_t{0}, nmf_total{0}, gemm_t{0}, gemm_total{0}, division_t{0}, div_total{0}, red_t{0}, 
 	red_total{0}, mulM_t{0}, mulM_total{0};
 
 
@@ -277,9 +277,9 @@ void nmf(int niter, queue q, C_REAL *V, C_REAL *WH,
         W_mult_H(q, WH, W, Htras, N, M, K);	/* WH = W*H */
 		gemm_total += (gettime() - gemm_t);
 
-		div_t = gettime();
+		division_t = gettime();
         V_div_WH(q, V, WH, N, M);			/* WH = (V./(W*H) */
-		div_total += (gettime() - div_t);
+		div_total += (gettime() - division_t);
 
 		red_t = gettime();
         accum(q, accW, W, N_pad, K); 		/* Shrink into one column */
@@ -301,9 +301,9 @@ void nmf(int niter, queue q, C_REAL *V, C_REAL *WH,
         W_mult_H(q, WH, W, Htras, N, M, K);	/* WH = W*H */
 		gemm_total += (gettime() - gemm_t);
 
-		div_t = gettime();
+		division_t = gettime();
         V_div_WH(q, V, WH, N, M);			/* WH = (V./(W*H) */
-		div_total += (gettime() - div_t);
+		div_total += (gettime() - division_t);
 
 		gemm_t = gettime();
         WH_mult_Ht(q, Waux, WH, Htras, N, M, K);/* Waux =  {V./(W*H)} *H' */
