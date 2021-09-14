@@ -373,10 +373,10 @@ int main(int argc, char *argv[]) {
 	sycl::queue q{selector};
 	std::cout << "Running on " << q.get_device().get_info<sycl::info::device::name>() << std::endl;
 
-	V            	  = get_V(N, M, file_name, q);
+	V            	  = get_V(N, M_pad, file_name, q);
 	W                 = malloc_shared<C_REAL>(N_pad * K, q);
 	Htras             = malloc_shared<C_REAL>(M_pad * K, q);
-	WH                = malloc_device<C_REAL>(N * M, q);
+	WH                = malloc_device<C_REAL>(N * M_pad, q);
 
 	Haux              = malloc_device<C_REAL>(M * K, q);
 	Waux              = malloc_device<C_REAL>(N * K, q);
