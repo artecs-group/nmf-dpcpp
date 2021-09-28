@@ -3,10 +3,24 @@
 
 #include <stdlib.h>
 #include <math.h>
-#include <string.h>
+#include <string>
 #include <CL/sycl.hpp>
+#include "oneapi/mkl.hpp"
 
 using namespace cl::sycl;
+
+#define RANDOM
+//#define DEBUG
+#define PAD 32
+
+#ifdef REAL_S
+#define C_REAL float
+#else
+#define C_REAL double
+#endif
+
+/* Number of iterations before testing convergence (can be adjusted) */
+#define NITER_TEST_CONV 10
 
 // CUDA device selector
 class CUDASelector : public device_selector {
@@ -34,35 +48,4 @@ class IntelGPUSelector : public device_selector {
         }
 };
 
-#define RANDOM
-//#define DEBUG
-const bool verbose = false;
-const char PAD = 32;
-
-#ifdef REAL_S
-#define C_REAL float
-#else
-#define C_REAL double
-#endif
-
-#ifdef BLAS_KERNEL
-#define W_mult_H blas_W_mult_H
-#define Wt_mult_WH blas_Wt_mult_WH
-#define WH_mult_Ht blas_WH_mult_Ht
-#else
-#define W_mult_H bare_W_mult_H
-#define Wt_mult_WH bare_Wt_mult_WH
-#define WH_mult_Ht bare_WH_mult_Ht
-#endif
-
-/* Number of iterations before testing convergence (can be adjusted) */
-const int NITER_TEST_CONV = 10;
-
-/* Spacing of floating point numbers. */
-const C_REAL eps = 2.2204e-16;
-
-void adjust_WH(queue q, C_REAL *W, C_REAL *Ht, int N, int M, int K);
-void V_div_WH(queue q, C_REAL *V, C_REAL *WH, int N, int M);
-void mult_M_div_vect(queue q, C_REAL *Mat, C_REAL *Maux, C_REAL *acc, int M, int K);
-void accum(queue q, C_REAL *acc, C_REAL *X, int N, int M);
 #endif

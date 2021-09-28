@@ -1,4 +1,31 @@
-#include "./common.h"
+#include "./kernels.hpp"
+
+constexpr oneapi::mkl::transpose transA = oneapi::mkl::transpose::trans;
+constexpr oneapi::mkl::transpose transB = oneapi::mkl::transpose::nontrans;
+
+/* Spacing of floating point numbers. */
+constexpr C_REAL eps{2.2204e-16};
+
+void W_mult_H(queue q, C_REAL *WH, C_REAL *W, C_REAL *Htras, int N, int M, int K) 
+{
+    oneapi::mkl::blas::gemm(q, transA, transB, M, N, K, 1, Htras, K, W, K, 0, WH, M);
+    q.wait();
+}
+
+
+void Wt_mult_WH(queue q, C_REAL *Haux, C_REAL *W, C_REAL *WH, int N, int M, int K) 
+{
+     oneapi::mkl::blas::gemm(q, transB, transA, K, M, N, 1, W, K, WH, M, 0, Haux, K);
+     q.wait();
+}
+
+
+void WH_mult_Ht(queue q, C_REAL *Waux, C_REAL *WH, C_REAL *Htras, int N, int M, int K) 
+{
+    oneapi::mkl::blas::gemm(q, transB, transB, K, N, M, 1, Htras, K, WH, M, 0, Waux, K);
+    q.wait();
+}
+
 
 void adjust_WH(queue q, C_REAL *W, C_REAL *Ht, int N, int M, int K) {
     q.submit([&](handler& cgh) {
@@ -24,18 +51,23 @@ void adjust_WH(queue q, C_REAL *W, C_REAL *Ht, int N, int M, int K) {
 }
 
 
+void V_div_WH3(queue q, C_REAL *V, C_REAL *WH, int N, int M) {
+    oneapi::mkl::vm::div(q, N*M, V, WH, WH);
+    q.wait();
+}
+
+
 void V_div_WH(queue q, C_REAL *V, C_REAL *WH, int N, int M) {
     int max_work_group_size = q.get_device().get_info<cl::sycl::info::device::max_work_group_size>();
-    int GROUP_SIZE = max_work_group_size < N ? max_work_group_size : N;
+    int group_size = max_work_group_size < M ? max_work_group_size : M;
     // adjust work-groups number 
-    int remainder = (N == GROUP_SIZE) ? 0 : GROUP_SIZE - (N % GROUP_SIZE);
+    int remainder = (M == group_size) ? 0 : group_size - (M % group_size);
+    int work_items = N * (M + remainder);
 
     q.submit([&](handler& cgh) {
-        cgh.parallel_for<class V_div_WH>(nd_range(range((N+remainder) * M), range(GROUP_SIZE)), [=](nd_item<1> item){
+        cgh.parallel_for<class V_div_WH>(nd_range(range(work_items), range(group_size)), [=](nd_item<1> item){
             int i = item.get_global_id(0);
-
-            if(i < N*M)
-                WH[i] = sycl::native::divide(V[i], WH[i]);
+            WH[i] = sycl::native::divide(V[i], WH[i]);
         });
     });
     q.wait();
@@ -68,7 +100,7 @@ void mult_M_div_vect(queue q, C_REAL *Mat, C_REAL *Maux, C_REAL *acc, int M, int
 }
 
 
-void accum(queue q, C_REAL *acc, C_REAL *X, int N, int M) {
+void accum_gpu(queue q, C_REAL *acc, C_REAL *X, int N, int M) {
     // init acc
     q.submit([&](auto &h) {
         h.parallel_for(sycl::range<1>(M), [=](id <1> i) {
@@ -118,7 +150,7 @@ void accum(queue q, C_REAL *acc, C_REAL *X, int N, int M) {
 }
 
 
-void accum2(queue q, C_REAL *acc, C_REAL *X, int N, int M) { 
+void accum_cpu2(queue q, C_REAL *acc, C_REAL *X, int N, int M) { 
     q.submit([&](handler& cgh) {
         cgh.parallel_for<class accum_add_matrix>(range<1>(M), [=](id <1> j){
 
@@ -128,4 +160,14 @@ void accum2(queue q, C_REAL *acc, C_REAL *X, int N, int M) {
         });
     });
     q.wait();
+}
+
+
+void accum_cpu(queue q, C_REAL *acc, C_REAL *X, int N, int M) {
+    for (int j = 0; j < M; j++){
+        acc[j] = 0;
+        for (int i = 0; i < N; i++) {
+            acc[j] += X[i*M + j];
+        }
+    }
 }
