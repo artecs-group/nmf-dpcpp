@@ -584,7 +584,7 @@ int main(int argc, char *argv[]) {
 	double time0, time1;
 	
 	C_REAL error;
-	C_REAL error_old = 9.99e+50;
+	C_REAL error_old = 3.4e+38;
 
     setbuf( stdout, NULL );
 	

@@ -10,8 +10,6 @@ GPU = GPU_DEVICE
 PDEVICE = $(GPU)
 PREAL = REAL_S
 
-MKL_LDFLAGS = -I${MKLROOT}/include -qmkl -DMKL_ILP64
-
 ifeq ($(DEVICE),cpu)
   PDEVICE = CPU_DEVICE
 endif
@@ -21,9 +19,9 @@ ifeq ($(REAL),double)
 endif
 
 # Default compiler and flags
-CC = dpcpp
-CLINK = -fiopenmp -fopenmp-targets=spir64  -fsycl  -L${MKLROOT}/lib/intel64 -lmkl_sycl -lmkl_intel_ilp64 -lmkl_intel_thread -lmkl_core -liomp5 -lsycl -lOpenCL -lstdc++ -lpthread -lm -ldl
-CFLAGS = -D$(PDEVICE) -D$(PREAL) -fiopenmp -fopenmp-targets=spir64
+CC = icpx
+CLINK = -fiopenmp -fopenmp-targets=spir64 -fsycl -qmkl
+CFLAGS = -D$(PDEVICE) -D$(PREAL)
 
 # Debug Flags
 ifeq ($(DEBUG),yes)
@@ -36,10 +34,10 @@ ifeq ($(OPTIMIZE),yes)
 endif
 
 main: main.o
-	$(CC) $(CFLAGS) $(CLINK) main.o -o main $(MKL_LDFLAGS)
+	$(CC) $(CFLAGS) $(CLINK) main.o -o main
 
 main.o: ./main.cpp ./common.h
-	$(CC) $(CFLAGS) main.cpp -c -o main.o $(MKL_LDFLAGS)
+	$(CC) $(CFLAGS) $(CLINK) main.cpp -c -o main.o
 
 run: main
 	./main V.bin 5000 38 2 1 20
