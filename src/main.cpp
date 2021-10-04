@@ -292,7 +292,7 @@ void gpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 			 * thread_limit = If the loop stride is 1, the optimal thread_limit is the number of hardware threads per EU (Nthreads) * Swidth DG1(112), 630(56). 
 			 * 				  If the stride is greater than 1, then thread_limit is the first multiple of Swidth that is greater or equal to stride.
 			 */
-			#pragma omp target teams distribute parallel for simd num_teams(96) thread_limit(112)
+			#pragma omp target teams distribute parallel for simd num_teams(24) thread_limit(56)
 			for(int i = 0; i < N*M; i++)
 				WH[i] = V[i] / WH[i]; /* V./(W*H) */
 			// #pragma omp target variant dispatch use_device_ptr(V, WH)
@@ -369,7 +369,7 @@ void gpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 			 * thread_limit = If the loop stride is 1, the optimal thread_limit is the number of hardware threads per EU (Nthreads) * Swidth DG1(112), 630(56). 
 			 * 				  If the stride is greater than 1, then thread_limit is the first multiple of Swidth that is greater or equal to stride.
 			 */
-			#pragma omp target teams distribute parallel for simd num_teams(96) thread_limit(112)
+			#pragma omp target teams distribute parallel for simd num_teams(24) thread_limit(56)
 			for(int i = 0; i < N*M; i++)
 				WH[i] = V[i] / WH[i]; /* V./(W*H) */
 			// #pragma omp target variant dispatch use_device_ptr(V, WH)
@@ -460,7 +460,7 @@ void cpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 
 		division_t = gettime();
 		
-		#pragma omp parallel for simd schedule(static)
+		#pragma omp parallel for simd schedule(dynamic)
 		for(int i = 0; i < N*M; i++)
 			WH[i] = V[i] / WH[i]; /* V./(W*H) */
 		// #pragma omp target variant dispatch use_device_ptr(V, WH)
@@ -494,7 +494,7 @@ void cpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 		gemm_total += (gettime() - gemm_t);
 
 		mulM_t = gettime();
-		#pragma omp parallel for simd schedule(static)
+		#pragma omp parallel for simd schedule(dynamic)
 		for (int j = 0; j < M; j++) {
 			for (int i = 0; i < K; i++) {
 				Htras[j*K + i] = Htras[j*K + i] * Haux[j*K + i] / acumm_W[i]; /* H = H .* (Haux) ./ accum_W */
