@@ -30,6 +30,10 @@ Running on a hyper-threding CPU could reduce performance, to disable it you can 
 
 `export DPCPP_CPU_NUM_CUS=12`
 
+To sufficient splitting to balance load, use:
+
+`export DPCPP_CPU_SCHEDULE=dynamic`
+
 For changing the backend where the device executes, you can use "SYCL_DEVICE_FILTER" variables, for example:
 
 `export SYCL_DEVICE_FILTER=gpu,level_zero`

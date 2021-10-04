@@ -454,7 +454,7 @@ int main(int argc, char *argv[]) {
 			<< "    Gemm time = " << gemm_total << " (us) --> " << gemm_total/nmf_total*100 << "%" << std::endl
 			<< "    Division time = " << div_total << " (us) --> " << div_total/nmf_total*100 << "%" << std::endl
 			<< "    Reduction time = " << red_total << " (us) --> " << red_total/nmf_total*100 << "%" << std::endl
-			<< "    Mult elem by elem time = " << mulM_total << " (us) --> " << mulM_total/nmf_total*100 << "%" << std::endl;
+			<< "    Dot product time = " << mulM_total << " (us) --> " << mulM_total/nmf_total*100 << "%" << std::endl;
 
 	printf("\n\n EXEC TIME %f (us).       N=%i M=%i K=%i Tests=%i (%lu)\n", time1-time0, N, M, K, nTests, sizeof(C_REAL));
 	printf("Final error %e \n", error);
