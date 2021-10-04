@@ -30,6 +30,10 @@ Running on a hyper-threding CPU could reduce performance, to disable it you can 
 
 `export DPCPP_CPU_NUM_CUS=12`
 
+To distribute range iterations among worker threads as uniformly as possible use:
+
+`export DPCPP_CPU_SCHEDULE=static`
+
 ## Publications
 
 * Igual, Francisco D., et al. "Non-negative matrix factorization on low-power architectures and accelerators: A comparative study." Computers & Electrical Engineering 46 (2015): 139-156.
