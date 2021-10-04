@@ -30,9 +30,9 @@ Running on a hyper-threding CPU could reduce performance, to disable it you can 
 
 `export DPCPP_CPU_NUM_CUS=12`
 
-To distribute range iterations among worker threads as uniformly as possible use:
+To sufficient splitting to balance load, use:
 
-`export DPCPP_CPU_SCHEDULE=static`
+`export DPCPP_CPU_SCHEDULE=dynamic`
 
 ## Publications
 
