@@ -16,7 +16,7 @@ endif
 
 # Default compiler and flags
 CC = icpx
-CFLAGS = -D$(PDEVICE) -D$(PREAL) -I"${MKLROOT}/include" -qmkl
+CFLAGS = -D$(PDEVICE) -D$(PREAL) -I"${MKLROOT}/include" -qmkl -xCORE-AVX2
 
 CLINK = -Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_intel_lp64.a ${MKLROOT}/lib/intel64/libmkl_intel_thread.a ${MKLROOT}/lib/intel64/libmkl_core.a -Wl,--end-group -liomp5 -lpthread -lm -ldl
 

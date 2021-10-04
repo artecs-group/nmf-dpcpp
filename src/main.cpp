@@ -460,7 +460,7 @@ void cpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 
 		division_t = gettime();
 		
-		#pragma omp teams distribute parallel for simd
+		#pragma omp parallel for simd schedule(static)
 		for(int i = 0; i < N*M; i++)
 			WH[i] = V[i] / WH[i]; /* V./(W*H) */
 		// #pragma omp target variant dispatch use_device_ptr(V, WH)
@@ -494,7 +494,7 @@ void cpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 		gemm_total += (gettime() - gemm_t);
 
 		mulM_t = gettime();
-		#pragma omp teams distribute parallel for simd
+		#pragma omp parallel for simd schedule(static)
 		for (int j = 0; j < M; j++) {
 			for (int i = 0; i < K; i++) {
 				Htras[j*K + i] = Htras[j*K + i] * Haux[j*K + i] / acumm_W[i]; /* H = H .* (Haux) ./ accum_W */
@@ -521,7 +521,7 @@ void cpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 		gemm_total += (gettime() - gemm_t);
 
 		division_t = gettime();
-		#pragma omp teams distribute parallel for simd
+		#pragma omp parallel for simd schedule(static)
 		for(int i = 0; i < N*M; i++)
 			WH[i] = V[i] / WH[i]; /* V./(W*H) */
 		// #pragma omp target variant dispatch use_device_ptr(V, WH)
@@ -556,7 +556,7 @@ void cpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 		red_total += (gettime() - red_t);
 
 		mulM_t = gettime();
-		#pragma omp teams distribute parallel for simd
+		#pragma omp parallel for simd schedule(static)
 		for (int i = 0; i < N; i++) {
 			for (int j = 0; j < K; j++) {
 				W[i*K + j] = W[i*K + j] * Waux[i*K + j] / acumm_H[j]; /* W = W .* Waux ./ accum_H */
