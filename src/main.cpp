@@ -245,6 +245,9 @@ void adjust_WH(C_REAL *W, C_REAL *Ht, int N, int M, int K) {
 }
 
 
+#if defined(GPU_DEVICE)
+#pragma omp requires unified_shared_memory
+#endif
 void gpu_nmf(int niter, C_REAL *V, C_REAL *WH, 
 	C_REAL *W, C_REAL *Htras, C_REAL *Waux, C_REAL *Haux,
 	C_REAL *acumm_W, C_REAL *acumm_H, int N, int M, int K)
@@ -265,7 +268,7 @@ void gpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 
 		/* WH = W*H */
 		gemm_t = gettime();
-		#pragma omp target variant dispatch //use_device_ptr(W, Htras, WH)
+		#pragma omp target variant dispatch use_device_ptr(W, Htras, WH)
 		{
 			cblas_rgemm(CblasRowMajor, CblasNoTrans, CblasTrans, 
 				N,				/* [m] */ 
@@ -312,7 +315,7 @@ void gpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 		red_total += (gettime() - red_t);
 
 		gemm_t = gettime();
-		#pragma omp target variant dispatch //use_device_ptr(W, WH, Haux)
+		#pragma omp target variant dispatch use_device_ptr(W, WH, Haux)
 		{
 			cblas_rgemm(CblasColMajor, CblasNoTrans, CblasTrans,
 				K,				/* [m] */
@@ -342,7 +345,7 @@ void gpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 
 		/* WH = W*H */
 		gemm_t = gettime();
-		#pragma omp target variant dispatch //use_device_ptr(W, Htras, WH)
+		#pragma omp target variant dispatch use_device_ptr(W, Htras, WH)
 		{
 			cblas_rgemm( CblasRowMajor, CblasNoTrans, CblasTrans, 
 				N,				/* [m] */ 
@@ -376,7 +379,7 @@ void gpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 		/* Waux =  {V./(W*H)} *H' */
 		/* W = W .* Waux ./ accum_H */
 		gemm_t = gettime();
-		#pragma omp target variant dispatch //use_device_ptr(WH, Htras, Waux)
+		#pragma omp target variant dispatch use_device_ptr(WH, Htras, Waux)
 		{
 			cblas_rgemm( CblasRowMajor, CblasNoTrans, CblasNoTrans, 
 				N,				/* [m] */ 
@@ -452,7 +455,7 @@ void cpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 
 		division_t = gettime();
 		
-		#pragma omp teams distribute parallel for simd
+		#pragma omp parallel for simd schedule(dynamic)
 		for(int i = 0; i < N*M; i++)
 			WH[i] = V[i] / WH[i]; /* V./(W*H) */
 		// #pragma omp target variant dispatch use_device_ptr(V, WH)
@@ -486,7 +489,7 @@ void cpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 		gemm_total += (gettime() - gemm_t);
 
 		mulM_t = gettime();
-		#pragma omp teams distribute parallel for simd
+		#pragma omp parallel for simd schedule(dynamic)
 		for (int j = 0; j < M; j++) {
 			for (int i = 0; i < K; i++) {
 				Htras[j*K + i] = Htras[j*K + i] * Haux[j*K + i] / acumm_W[i]; /* H = H .* (Haux) ./ accum_W */
@@ -513,7 +516,7 @@ void cpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 		gemm_total += (gettime() - gemm_t);
 
 		division_t = gettime();
-		#pragma omp teams distribute parallel for simd
+		#pragma omp parallel for simd schedule(static)
 		for(int i = 0; i < N*M; i++)
 			WH[i] = V[i] / WH[i]; /* V./(W*H) */
 		// #pragma omp target variant dispatch use_device_ptr(V, WH)
@@ -548,7 +551,7 @@ void cpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 		red_total += (gettime() - red_t);
 
 		mulM_t = gettime();
-		#pragma omp teams distribute parallel for simd
+		#pragma omp parallel for simd schedule(static)
 		for (int i = 0; i < N; i++) {
 			for (int j = 0; j < K; j++) {
 				W[i*K + j] = W[i*K + j] * Waux[i*K + j] / acumm_H[j]; /* W = W .* Waux ./ accum_H */
@@ -559,9 +562,7 @@ void cpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 	nmf_total += (gettime() - nmf_t);
 }
 
-#if defined(GPU_DEVICE)
-#pragma omp requires unified_shared_memory
-#endif
+
 int main(int argc, char *argv[]) {
 	int niters;
 
