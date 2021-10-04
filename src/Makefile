@@ -7,23 +7,24 @@ CPU = CPU_DEVICE
 GPU = GPU_DEVICE
 
 # Program flags
-PDEVICE = $(GPU)
+PDEVICE = $(CPU)
 PREAL = REAL_S
-
-MKL_LDFLAGS = -I${MKLROOT}/include -qmkl -DMKL_ILP64
-
-ifeq ($(DEVICE),cpu)
-  PDEVICE = CPU_DEVICE
-endif
 
 ifeq ($(REAL),double)
   PREAL = REAL_D
 endif
 
 # Default compiler and flags
-CC = dpcpp
-CLINK = -fiopenmp -fopenmp-targets=spir64  -fsycl  -L${MKLROOT}/lib/intel64 -lmkl_sycl -lmkl_intel_ilp64 -lmkl_intel_thread -lmkl_core -liomp5 -lsycl -lOpenCL -lstdc++ -lpthread -lm -ldl
-CFLAGS = -D$(PDEVICE) -D$(PREAL) -fiopenmp -fopenmp-targets=spir64
+CC = icpx
+CFLAGS = -D$(PDEVICE) -D$(PREAL) -I"${MKLROOT}/include" -qmkl
+
+CLINK = -Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_intel_lp64.a ${MKLROOT}/lib/intel64/libmkl_intel_thread.a ${MKLROOT}/lib/intel64/libmkl_core.a -Wl,--end-group -liomp5 -lpthread -lm -ldl
+
+ifeq ($(DEVICE),gpu)
+  PDEVICE = $(GPU)
+  CLINK = -fiopenmp -fopenmp-targets=spir64 -fsycl -Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_sycl.a ${MKLROOT}/lib/intel64/libmkl_intel_lp64.a ${MKLROOT}/lib/intel64/libmkl_intel_thread.a ${MKLROOT}/lib/intel64/libmkl_core.a -Wl,--end-group -liomp5 -lsycl -lOpenCL -lstdc++ -lpthread -lm -ldl
+  CFLAGS += -fiopenmp -fopenmp-targets=spir64  
+endif
 
 # Debug Flags
 ifeq ($(DEBUG),yes)
@@ -36,10 +37,10 @@ ifeq ($(OPTIMIZE),yes)
 endif
 
 main: main.o
-	$(CC) $(CFLAGS) $(CLINK) main.o -o main $(MKL_LDFLAGS)
+	$(CC) $(CFLAGS) $(CLINK) main.o -o main 
 
 main.o: ./main.cpp ./common.h
-	$(CC) $(CFLAGS) main.cpp -c -o main.o $(MKL_LDFLAGS)
+	$(CC) $(CFLAGS) main.cpp -c -o main.o
 
 run: main
 	./main V.bin 5000 38 2 1 20
