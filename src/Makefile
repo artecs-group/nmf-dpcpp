@@ -16,14 +16,16 @@ endif
 
 # Default compiler and flags
 CC = icpx
-CFLAGS = -D$(PDEVICE) -D$(PREAL) -I"${MKLROOT}/include" -qmkl -xhost
+CFLAGS = -D$(PDEVICE) -D$(PREAL) -I"${MKLROOT}/include" -qmkl
 
 CLINK = -Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_intel_lp64.a ${MKLROOT}/lib/intel64/libmkl_intel_thread.a ${MKLROOT}/lib/intel64/libmkl_core.a -Wl,--end-group -liomp5 -lpthread -lm -ldl
 
 ifeq ($(DEVICE),gpu)
   PDEVICE = $(GPU)
   CLINK = -fiopenmp -fopenmp-targets=spir64 -fsycl -Wl,--start-group ${MKLROOT}/lib/intel64/libmkl_sycl.a ${MKLROOT}/lib/intel64/libmkl_intel_lp64.a ${MKLROOT}/lib/intel64/libmkl_intel_thread.a ${MKLROOT}/lib/intel64/libmkl_core.a -Wl,--end-group -liomp5 -lsycl -lOpenCL -lstdc++ -lpthread -lm -ldl
-  CFLAGS += -fiopenmp -fopenmp-targets=spir64  
+  CFLAGS += -fiopenmp -fopenmp-targets=spir64
+else
+  CFLAGS += -xhost
 endif
 
 # Debug Flags
