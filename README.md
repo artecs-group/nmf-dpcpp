@@ -30,6 +30,10 @@ Running on a hyper-threding CPU could reduce performance, to disable it you can 
 
 `export DPCPP_CPU_NUM_CUS=12`
 
+For changing the backend where the device executes, you can use "SYCL_DEVICE_FILTER" variables, for example:
+
+`export SYCL_DEVICE_FILTER=gpu,level_zero`
+
 ## Publications
 
 * Igual, Francisco D., et al. "Non-negative matrix factorization on low-power architectures and accelerators: A comparative study." Computers & Electrical Engineering 46 (2015): 139-156.
