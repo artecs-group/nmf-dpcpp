@@ -275,7 +275,7 @@ void gpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 
 		/* WH = W*H */
 		gemm_t = gettime();
-		#pragma omp target variant dispatch use_device_ptr(W, Htras, WH)
+		#pragma omp target variant dispatch //use_device_ptr(W, Htras, WH)
 		{
 			cblas_rgemm(CblasRowMajor, CblasNoTrans, CblasTrans, 
 				N,				/* [m] */ 
@@ -317,7 +317,7 @@ void gpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 		red_total += (gettime() - red_t);
 
 		gemm_t = gettime();
-		#pragma omp target variant dispatch use_device_ptr(W, WH, Haux)
+		#pragma omp target variant dispatch //use_device_ptr(W, WH, Haux)
 		{
 			cblas_rgemm(CblasColMajor, CblasNoTrans, CblasTrans,
 				K,				/* [m] */
@@ -347,7 +347,7 @@ void gpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 
 		/* WH = W*H */
 		gemm_t = gettime();
-		#pragma omp target variant dispatch use_device_ptr(W, Htras, WH)
+		#pragma omp target variant dispatch //use_device_ptr(W, Htras, WH)
 		{
 			cblas_rgemm( CblasRowMajor, CblasNoTrans, CblasTrans, 
 				N,				/* [m] */ 
@@ -376,7 +376,7 @@ void gpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 		/* Waux =  {V./(W*H)} *H' */
 		/* W = W .* Waux ./ accum_H */
 		gemm_t = gettime();
-		#pragma omp target variant dispatch use_device_ptr(WH, Htras, Waux)
+		#pragma omp target variant dispatch //use_device_ptr(WH, Htras, Waux)
 		{
 			cblas_rgemm( CblasRowMajor, CblasNoTrans, CblasNoTrans, 
 				N,				/* [m] */ 
