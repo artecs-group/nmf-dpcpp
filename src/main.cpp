@@ -257,9 +257,16 @@ void gpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 	/*      Main Iterative Process       */
 	/*                                   */
 	/*************************************/
+	/* 
+	* num_teams = number of EUs (DG1 = 96, UHD630 = 24)
+	* thread_limit = If the loop stride is 1, the optimal thread_limit is the number of hardware threads per EU (Nthreads) * Swidth DG1(112), 630(56). 
+	* 				  If the stride is greater than 1, then thread_limit is the first multiple of Swidth that is greater or equal to stride.
+	*/
+	constexpr int EU = 96;
+	constexpr int hardware_th_limit = 112;
+	int thread_limit = (hardware_th_limit > M) ? M : hardware_th_limit;
 
 	nmf_t = gettime();
-
 	for (int iter = 0; iter < niter; iter++) {
 	
 		/*******************************************/
@@ -284,12 +291,7 @@ void gpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 		gemm_total += (gettime() - gemm_t);
 
 		division_t = gettime();
-		/* 
-			* num_teams = number of EUs (DG1 = 96, UHD630 = 24)
-			* thread_limit = If the loop stride is 1, the optimal thread_limit is the number of hardware threads per EU (Nthreads) * Swidth DG1(112), 630(56). 
-			* 				  If the stride is greater than 1, then thread_limit is the first multiple of Swidth that is greater or equal to stride.
-			*/
-		#pragma omp target teams distribute parallel for simd num_teams(96) thread_limit(112)
+		#pragma omp target teams distribute parallel for simd num_teams(EU) thread_limit(thread_limit)
 		for(int i = 0; i < N*M; i++)
 			WH[i] = V[i] / WH[i]; /* V./(W*H) */
 		// #pragma omp target variant dispatch use_device_ptr(V, WH)
@@ -361,12 +363,7 @@ void gpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 		gemm_total += (gettime() - gemm_t);
 
 		division_t = gettime();
-		/* 
-			* num_teams = number of EUs (DG1 = 96, UHD630 = 24)
-			* thread_limit = If the loop stride is 1, the optimal thread_limit is the number of hardware threads per EU (Nthreads) * Swidth DG1(112), 630(56). 
-			* 				  If the stride is greater than 1, then thread_limit is the first multiple of Swidth that is greater or equal to stride.
-			*/
-		#pragma omp target teams distribute parallel for simd num_teams(96) thread_limit(112)
+		#pragma omp target teams distribute parallel for simd num_teams(EU) thread_limit(thread_limit)
 		for(int i = 0; i < N*M; i++)
 			WH[i] = V[i] / WH[i]; /* V./(W*H) */
 		// #pragma omp target variant dispatch use_device_ptr(V, WH)
