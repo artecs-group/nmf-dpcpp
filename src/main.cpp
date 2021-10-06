@@ -513,7 +513,7 @@ void cpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 		gemm_total += (gettime() - gemm_t);
 
 		division_t = gettime();
-		#pragma omp parallel for simd schedule(static)
+		#pragma omp parallel for simd schedule(dynamic)
 		for(int i = 0; i < N*M; i++)
 			WH[i] = V[i] / WH[i]; /* V./(W*H) */
 		// #pragma omp target variant dispatch use_device_ptr(V, WH)
@@ -548,7 +548,7 @@ void cpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 		red_total += (gettime() - red_t);
 
 		mulM_t = gettime();
-		#pragma omp parallel for simd schedule(static)
+		#pragma omp parallel for simd schedule(dynamic)
 		for (int i = 0; i < N; i++) {
 			for (int j = 0; j < K; j++) {
 				W[i*K + j] = W[i*K + j] * Waux[i*K + j] / acumm_H[j]; /* W = W .* Waux ./ accum_H */
