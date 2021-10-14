@@ -1,12 +1,11 @@
 #include <stdio.h>
 #include <sys/time.h>
 #include <time.h>
+#include "common.hpp"
+#include "./kernels/kernels.hpp"
 
-#ifdef BLAS_KERNEL
-#include "./kernels/blas_kernel/blas_kernel.h"
-#else
-#include "./kernels/bare_kernel/bare_kernel.h" //default kernels
-#endif
+double nmf_t{0}, nmf_total{0}, gemm_t{0}, gemm_total{0}, division_t{0}, div_total{0}, red_t{0}, 
+	red_total{0}, mulM_t{0}, mulM_total{0};
 
 
 inline int pow2roundup(int x) {
@@ -56,10 +55,10 @@ void initWH(C_REAL *W, C_REAL *Htras, int N, int M, int K, int N_pad, int M_pad)
 	srand(0);
 
 	for (int i = 0; i < N*K; i++)
-		W[i] = ((C_REAL)(rand()))/RAND_MAX;
+		W[i] = ((C_REAL)(rand())) / ((C_REAL) RAND_MAX);
 
 	for (int i = 0; i < M*K; i++)
-		Htras[i] = ((C_REAL)(rand()))/RAND_MAX;
+		Htras[i] = ((C_REAL)(rand())) / ((C_REAL) RAND_MAX);
 
 #ifdef DEBUG
 	/* Added to debug */
@@ -147,7 +146,7 @@ C_REAL *get_V(int N, int M, char* file_name, queue q) {
     srand( 0 );
 
     for (int i = 0; i < N*M; i++)
-        V[i] = ((C_REAL)(rand()))/RAND_MAX;
+        V[i] = ((C_REAL)(rand())) / ((C_REAL) RAND_MAX);
 #endif
 
 	return V;
@@ -267,26 +266,59 @@ void nmf(int niter, queue q, C_REAL *V, C_REAL *WH,
 	/*      Main Iterative Process       */
 	/*                                   */
 	/*************************************/
+
+	nmf_t = gettime();
 	for (int iter = 0; iter < niter; iter++) {
 		/*******************************************/
 		/*** H = H .* (W'*(V./(W*H))) ./ accum_W ***/
 		/*******************************************/
 
+		gemm_t = gettime();
         W_mult_H(q, WH, W, Htras, N, M, K);	/* WH = W*H */
+		gemm_total += (gettime() - gemm_t);
+
+		division_t = gettime();
         V_div_WH(q, V, WH, N, M);			/* WH = (V./(W*H) */
+		div_total += (gettime() - division_t);
+
+		red_t = gettime();
         accum(q, accW, W, N_pad, K); 		/* Shrink into one column */
+		red_total += (gettime() - red_t);
+
+		gemm_t = gettime();
         Wt_mult_WH(q, Haux, W, WH, N, M, K);	/* Haux = (W'* {V./(WH)} */
+		gemm_total += (gettime() - gemm_t);
+
+		mulM_t = gettime();
         mult_M_div_vect(q, Htras, Haux, accW, M, K);/* H = H .* (Haux) ./ accum_W */
+		mulM_total += (gettime() - mulM_t);
 
 		/*******************************************/
 		/*** W = W .* ((V./(W*H))*H') ./ accum_H ***/
 		/*******************************************/
+
+		gemm_t = gettime();
         W_mult_H(q, WH, W, Htras, N, M, K);	/* WH = W*H */
+		gemm_total += (gettime() - gemm_t);
+
+		division_t = gettime();
         V_div_WH(q, V, WH, N, M);			/* WH = (V./(W*H) */
+		div_total += (gettime() - division_t);
+
+		gemm_t = gettime();
         WH_mult_Ht(q, Waux, WH, Htras, N, M, K);/* Waux =  {V./(W*H)} *H' */
+		gemm_total += (gettime() - gemm_t);
+
+		red_t = gettime();
         accum(q, accH, Htras, M_pad, K);		/* Shrink into one column */
+		red_total += (gettime() - red_t);
+
+		mulM_t = gettime();
         mult_M_div_vect(q, W, Waux, accH, N, K);/* W = W .* Waux ./ accum_H */
+		mulM_total += (gettime() - mulM_t);
     }
+
+	nmf_total += (gettime() - nmf_t);
 }
 
 
@@ -304,9 +336,11 @@ int main(int argc, char *argv[]) {
 	int diff, inc;
 	
 	double time0, time1;
+
+	constexpr bool verbose{false};
 	
 	C_REAL error;
-	C_REAL error_old = 9.99e+50;
+	C_REAL error_old = 3.4e+38;
 
     setbuf( stdout, NULL );
 	
@@ -339,10 +373,10 @@ int main(int argc, char *argv[]) {
 	sycl::queue q{selector};
 	std::cout << "Running on " << q.get_device().get_info<sycl::info::device::name>() << std::endl;
 
-	V            	  = get_V(N, M, file_name, q);
+	V            	  = get_V(N, M_pad, file_name, q);
 	W                 = malloc_shared<C_REAL>(N_pad * K, q);
 	Htras             = malloc_shared<C_REAL>(M_pad * K, q);
-	WH                = malloc_device<C_REAL>(N * M, q);
+	WH                = malloc_device<C_REAL>(N * M_pad, q);
 
 	Haux              = malloc_device<C_REAL>(M * K, q);
 	Waux              = malloc_device<C_REAL>(N * K, q);
@@ -415,7 +449,14 @@ int main(int argc, char *argv[]) {
 	/**********************************/
 	/**********************************/
 
-	printf("\n\n\n EXEC TIME %f (us).       N=%i M=%i K=%i Tests=%i (%lu)\n", time1-time0, N, M, K, nTests, sizeof(C_REAL));
+	std::cout << std::endl 
+			<< "Total NMF time = " << nmf_total << " (us) --> 100%" << std::endl
+			<< "    Gemm time = " << gemm_total << " (us) --> " << gemm_total/nmf_total*100 << "%" << std::endl
+			<< "    Division time = " << div_total << " (us) --> " << div_total/nmf_total*100 << "%" << std::endl
+			<< "    Reduction time = " << red_total << " (us) --> " << red_total/nmf_total*100 << "%" << std::endl
+			<< "    Dot product time = " << mulM_total << " (us) --> " << mulM_total/nmf_total*100 << "%" << std::endl;
+
+	printf("\n\n EXEC TIME %f (us).       N=%i M=%i K=%i Tests=%i (%lu)\n", time1-time0, N, M, K, nTests, sizeof(C_REAL));
 	printf("Final error %e \n", error);
 
 	/* Write the solution of the problem */

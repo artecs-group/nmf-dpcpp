@@ -10,7 +10,6 @@ To compile the code you can simply do it with `make` command. However, the Makef
 * OPTIMIZE=[yes, no] --> Enables compiler -O3 option. Activated by default.
 * DEBUG=[yes, no] --> Sets the -g compiler option. Disabled by default.
 * DEVICE=[cpu, nvidia, igpu] --> States where to run the SYCL kernels. It is set by default to cpu.
-* KERNEL=[bare, blas] --> Defines if MKL BLAS kernels should be used. It is set to bare by default.
 * REAL=[simple, double] --> Determines whether to use simple or double float point precision. It is set by default to simple.
 
 ## How to run it?
@@ -26,6 +25,18 @@ Once you copile it, you will get the nmf executable. This binary takes the follo
 An example to run it could be:
 
 `./nmf V.bin 1000 500 4 1 10`
+
+Running on a hyper-threding CPU could reduce performance, to disable it you can use the following variable set to the number of phisical cores on the CPU.
+
+`export DPCPP_CPU_NUM_CUS=12`
+
+To sufficient splitting to balance load, use:
+
+`export DPCPP_CPU_SCHEDULE=dynamic`
+
+For changing the backend where the device executes, you can use "SYCL_DEVICE_FILTER" variables, for example:
+
+`export SYCL_DEVICE_FILTER=gpu,level_zero`
 
 ## Publications
 
