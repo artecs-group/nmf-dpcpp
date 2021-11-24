@@ -51,10 +51,10 @@ void adjust_WH(queue q, C_REAL *W, C_REAL *Ht, int N, int M, int K) {
 }
 
 
-void V_div_WH3(queue q, C_REAL *V, C_REAL *WH, int N, int M) {
-    oneapi::mkl::vm::div(q, N*M, V, WH, WH);
-    q.wait();
-}
+// void V_div_WH3(queue q, C_REAL *V, C_REAL *WH, int N, int M) {
+//     oneapi::mkl::vm::div(q, N*M, V, WH, WH);
+//     q.wait();
+// }
 
 
 void V_div_WH(queue q, C_REAL *V, C_REAL *WH, int N, int M) {
