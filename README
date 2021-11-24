@@ -1,0 +1,8 @@
+# To Compile CUDA
+nvcc -c kernels.cu -DGPU -DDEBUG -I/usr/local/cuda-5.0/include/ -I. -lcuda -lcublas
+gcc -c  NMF_LeeSeung.c -O3 -DREAL -DGPU -DDEBUG -I/usr/local/cuda-5.0/include/ -I. -L/usr/local/cuda-5.0/lib64  -lcuda -lcublas -lcudart -lm
+gcc -o NMF.cuda  NMF_LeeSeung.o kernels.o -O3 -DREAL -DGPU -DDEBUG -I/usr/local/cuda-5.0/include/ -I. -L/usr/local/cuda-5.0/lib64  -lcuda -lcublas -lcudart -lm
+
+# To run
+./exec dataInput.bin N M K nTests stop_threshold (argc=1 0)
+example ./NMF V.bin 500 128 4 100 20
