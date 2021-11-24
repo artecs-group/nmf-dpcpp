@@ -35,7 +35,7 @@ class CUDASelector : public device_selector {
         }
 };
 
-// Intel iGPU
+// Intel GPU
 class IntelGPUSelector : public device_selector {
     public:
         int operator()(const device &Device) const override {
