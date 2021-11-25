@@ -3,7 +3,7 @@
 #include <math.h>
 #include <cuda.h>
 #include "cublas.h"
-#include "kernels.h"
+#include "kernels/kernels.h"
 #include <sys/times.h>
 #include <malloc.h>
 #include <string.h>
@@ -12,10 +12,7 @@
 #include <iostream>
 
 #define RANDOM
-#ifdef GPU
 #define pinned_memory
-#endif
-//#define DEBUG
 #define verbose 0
 #define PAD 32
 
@@ -496,11 +493,10 @@ void writeSolution(real **W, real **Ht, unsigned char *consensus, int N, int M, 
 }
 
 
-void nmf_GPU(int niter, real *d_V, real *d_WH, real *d_W, real *d_Htras, real *d_Waux, real *d_Haux,
+void nmf(int niter, real *d_V, real *d_WH, real *d_W, real *d_Htras, real *d_Waux, real *d_Haux,
 	real *d_accW, real *d_accH,
 	int N, int M, int K, int N_pad, int M_pad)
 {
-#ifdef GPU
 	int iter;
 	
 	int i, j, k;
@@ -567,7 +563,6 @@ void nmf_GPU(int niter, real *d_V, real *d_WH, real *d_W, real *d_Htras, real *d
 		mulM_total += (gettime() - mulM_t);
 	}
 	nmf_total += (gettime() - nmf_t);
-#endif
 }
 
 
@@ -690,7 +685,7 @@ int main(int argc, char *argv[])
 			iter++;
 
 			/* Main Proccess of NMF Brunet */
-			nmf_GPU(NITER_TEST_CONV, 
+			nmf(NITER_TEST_CONV, 
 				d_V, d_WH, d_W, d_Htras, d_Waux, d_Haux, d_acumm_W, d_acumm_H,
 				N, M, K, N_pad, M_pad);
 

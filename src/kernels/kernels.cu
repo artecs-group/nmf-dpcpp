@@ -135,7 +135,7 @@ __global__ void reduction_device(int n, int nx, int block_size, int threads, rea
 	int global_id_offset;
 	
 	for(int i = 0; i < n; i += block_size){
-		offset = threds * blocks;
+		offset = threads * blocks;
 		global_id_offset = global_id + offset;
 
 		scratch[local_id] = X[global_id_offset];
