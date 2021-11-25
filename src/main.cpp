@@ -3,20 +3,16 @@
 #include <math.h>
 #include <cuda.h>
 #include "cublas.h"
-#include "kernels/kernels.h"
 #include <sys/times.h>
-#include <malloc.h>
-#include <string.h>
 #include <time.h>
 #include <sys/time.h>
 #include <iostream>
+#include "kernels/kernels.h"
 
 #define RANDOM
-#define pinned_memory
 #define verbose 0
-#define PAD 32
 
-#if REAL <=4
+#ifdef REAL
 	#define real float
 	#define cblas_rgemm cblas_sgemm
 	#define cblas_rdot cblas_sdot
@@ -391,14 +387,14 @@ int main(int argc, char *argv[])
 	int K;
 	int stop_threshold, stop;
 	char file_name[255];
-	int test, iter;
+	int iter;
 	int diff, inc;
 	
 	double time0, time1;
 	double timeGPU2CPU, timeGPU1, timeGPU0;
 	
 	real error;
-	real error_old=9.99e+50;
+	real error_old = 3.4e+38;
     setbuf( stdout, NULL );
 	
 	if(argc != 7) {
@@ -422,18 +418,13 @@ int main(int argc, char *argv[])
 	Htras      = new real[M_pad*K];
 	W_best     = new real[N*K];
 	Htras_best = new real[M*K];
-	WH         = new real[N*M_pad];
-	Haux       = new real[M*K];
-	Waux       = new real[N*K];
-	acumm_W    = new real[K];
-	acumm_H    = new real[K];
 	classification      = new unsigned char[M];
 	last_classification = new unsigned char[M];
 	consensus           = new unsigned char[M*(M-1)/2];
 
 	cublasInit();
 	cudaMalloc((void **)&d_V,      N*M_pad*sizeof(real));
-	cudaMemcpy(d_V, V,            N*M_pad*sizeof(real), cudaMemcpyHostToDevice);
+	cudaMemcpy(d_V, V,             N*M_pad*sizeof(real), cudaMemcpyHostToDevice);
 	cudaMalloc((void **)&d_W,      N_pad*K*sizeof(real));
 	cudaMalloc((void **)&d_Htras,  M_pad*K*sizeof(real));
 	cudaMalloc((void **)&d_WH,     N*M_pad*sizeof(real));
@@ -447,7 +438,7 @@ int main(int argc, char *argv[])
 	/**********************************/
 	time0 = gettime();
 
-	for (test=0; test<nTests; test++)
+	for (int test = 0; test < nTests; test++)
 	{
 		/* Init W and H */
 		initWH(W, Htras, N, M, K, N_pad, M_pad);
@@ -458,12 +449,12 @@ int main(int argc, char *argv[])
 		timeGPU1 = gettime();
 		timeGPU2CPU += timeGPU1-timeGPU0;
 
-		niters = 2000/NITER_TEST_CONV;
-
+		niters = 2000 / NITER_TEST_CONV;
 		stop   = 0;
 		iter   = 0;
 		inc    = 0;
-		while (iter<niters && !stop)
+
+		while (iter < niters && !stop)
 		{
 			iter++;
 
@@ -535,12 +526,7 @@ int main(int argc, char *argv[])
 	delete [] W;
 	delete [] Htras;
 	delete [] W_best;
-	delete [] Htras_best;	
-	delete [] WH;
-	delete [] Waux;
-	delete [] Haux;
-	delete [] acumm_W;
-	delete [] acumm_H;
+	delete [] Htras_best;
 	delete [] classification;
 	delete [] last_classification;
 	delete [] consensus;

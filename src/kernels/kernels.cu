@@ -139,7 +139,7 @@ __global__ void reduction_device(int n, int nx, int block_size, int threads, rea
 		scratch[local_id] = X[global_id_offset];
 
 		// Tree reduction
-		for(int j = (block_size >> 1); j > 0; j >>= 1) {
+		for(int j = block_size / 2; j > 0; j >>= 1) {
 			__syncthreads();
 
 			if(local_id < j)
@@ -158,12 +158,13 @@ __global__ void reduction_device(int n, int nx, int block_size, int threads, rea
 void accum( real* acc, real* X, int n, int nx)
 {
 	// init acc with 0s
-	dim3 dimBlock1(BLOCK_SIZE);
-	dim3 dimGrid1(nx / BLOCK_SIZE);
+	int block_size = BLOCK_SIZE < nx ? BLOCK_SIZE : nx;
+	dim3 dimBlock1(block_size);
+	dim3 dimGrid1(nx);
 	init_accum_device<<<dimGrid1, dimBlock1>>>(acc);
 
 	// reduction
-	int block_size = BLOCK_SIZE * BLOCK_SIZE;
+	block_size = BLOCK_SIZE * BLOCK_SIZE;
 	block_size = block_size < n ? block_size : n;
 	int threads = block_size * nx;
 	dim3 dimBlock2(block_size);
