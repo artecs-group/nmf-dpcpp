@@ -4,23 +4,21 @@ REAL        = simple # {simple, double}
 
 # Program flags
 PREAL = REAL
-PDEBUG = NON_DEBUG
 
 ifeq ($(REAL),double)
   PREAL = REAL_D
 endif
 
-# Debug Flags
-ifeq ($(DEBUG),yes)
-  CFLAGS += -g
-  PDEBUG = DEBUG
-endif
-
 # Default compiler and flags
 CXX = g++
 NVCC = nvcc
-CFLAGS = -D$(PREAL) -D$(PDEBUG) -I/usr/local/cuda/include -lcuda -lcublas
+CFLAGS = -D$(PREAL) -I/usr/local/cuda/include -lcuda -lcublas
 CLINK = -L/usr/local/cuda/lib64 -lcudart
+
+# Debug Flags
+ifeq ($(DEBUG),yes)
+  CFLAGS += -g -DDEBUG
+endif
 
 # Optimization Flags
 ifeq ($(OPTIMIZE),yes)

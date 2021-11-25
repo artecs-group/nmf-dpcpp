@@ -232,7 +232,7 @@ void initWH(real **W, real **Htras, int N, int M, int K, int N_pad, int M_pad)
 			Htras[i][j] = ((real)(rand()))/RAND_MAX;
 	}
 
-#ifdef DEBUG
+#ifndef RANDOM
 	/* Added to debug */
 	FILE *fIn;
 	real **Wtmp = get_memory2D(N, K);
