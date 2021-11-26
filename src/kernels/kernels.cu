@@ -145,36 +145,30 @@ __global__ void init_accum_device(real *acc)
 }
 
 
-__global__ void reduction_device(int n, int nx, int block_size, int threads, real* acc, real* X)
+__global__ void reduction_device(int n, int nx, int block_size, int threads, int block, real* acc, real* X)
 {
 	extern __shared__ real scratch[];
 	int local_id = threadIdx.x;
 	int block_id = blockIdx.x;
-	int blocks = 0;
 	int offset;
 	int global_id = local_id * (nx-1) + local_id + block_id;
 	int global_id_offset;
 	
-	for(int i = 0; i < n; i += block_size){
-		offset = threads * blocks;
-		global_id_offset = global_id + offset;
+	offset = threads * block;
+	global_id_offset = global_id + offset;
 
-		scratch[local_id] = X[global_id_offset];
+	scratch[local_id] = X[global_id_offset];
 
-		// Tree reduction
-		for(int j = block_size / 2; j > 0; j >>= 1) {
-			__syncthreads();
-
-			if(local_id < j)
-				scratch[local_id] += scratch[local_id + j];
-		}
-
-		if (local_id == 0)
-			acc[block_id] += scratch[0];
-		
-		blocks++;
+	// Tree reduction
+	for(int j = (block_size >> 1); j > 0; j >>= 1) {
 		__syncthreads();
+
+		if(local_id < j)
+			scratch[local_id] += scratch[local_id + j];
 	}
+
+	if (local_id == 0)
+		acc[block_id] += scratch[0];
 }
 
 
@@ -192,7 +186,12 @@ void accum( real* acc, real* X, int n, int nx)
 	int threads = block_size * nx;
 	dim3 dimBlock2(block_size);
 	dim3 dimGrid2(threads);
-	reduction_device<<<dimGrid2, dimBlock2, block_size*sizeof(real)>>>(n, nx, block_size, threads, acc, X);
+
+	int blocks = 0;
+	for(int i = 0; i < n; i += block_size){
+		reduction_device<<<dimGrid2, dimBlock2, block_size*sizeof(real)>>>(n, nx, block_size, threads, blocks, acc, X);
+		blocks++;
+	}
 }
 
 // __global__ void init_accum_device( real *acc, real *X, int n, int nx)
