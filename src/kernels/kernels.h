@@ -17,6 +17,8 @@
 /* Spacing of realing point numbers. */
 #define EPS 2.2204e-16
 
+void init_timers();
+void delete_timers();
 void W_mult_H(real *WH, real *W, real *Htras, int N, int M, int K);
 void V_div_WH( real* V, real* WH, int ny, int nx);
 void W_div_acc( real* W, real* accW, int ny, int nx);

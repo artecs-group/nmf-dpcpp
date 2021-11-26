@@ -34,8 +34,12 @@
 /* Spacing of floating point numbers. */
 real eps=2.2204e-16;
 
-double nmf_t{0}, nmf_total{0}, gemm_t{0}, gemm_total{0}, division_t{0}, div_total{0}, red_t{0}, 
-	red_total{0}, mulM_t{0}, mulM_total{0};
+double nmf_t{0};
+double nmf_total{0};
+extern float gemm_total;
+extern float div_total;
+extern float red_total;
+extern float mulM_total;
 
 void printMATRIX(real *m, int I, int J);
 
@@ -305,49 +309,21 @@ void nmf(int niter, real *d_V, real *d_WH, real *d_W, real *d_Htras, real *d_Wau
 		/*** H = H .* (W'*(V./(W*H))) ./ accum_W ***/
 		/*******************************************/
 
-		gemm_t = gettime();
 		W_mult_H(d_WH, d_W, d_Htras, N, M, K);	/* WH = W*H */
-		gemm_total += (gettime() - gemm_t);
-
-		division_t = gettime();
 		V_div_WH(d_V, d_WH, N, M);			/* WH = (V./(W*H) */
-		div_total += (gettime() - division_t);
-
-		red_t = gettime();
 		accum(d_accW, d_W, N_pad, K); 		/* Reducir a una columna */
-		red_total += (gettime() - red_t);
-
-		gemm_t = gettime();
 		Wt_mult_WH(d_Haux, d_W, d_WH, N, M, K);	/* Haux = (W'* {V./(WH)} */
-		gemm_total += (gettime() - gemm_t);
-
-		mulM_t = gettime();
 		mult_M_div_vect(d_Htras, d_Haux, d_accW, M, K);/* H = H .* (Haux) ./ accum_W */
-		mulM_total += (gettime() - mulM_t);
 
 		/*******************************************/
 		/*** W = W .* ((V./(W*H))*H') ./ accum_H ***/
 		/*******************************************/
 
-		gemm_t = gettime();
 		W_mult_H(d_WH, d_W, d_Htras, N, M, K);	/* WH = W*H */
-		gemm_total += (gettime() - gemm_t);
-
-		division_t = gettime();
 		V_div_WH(d_V, d_WH, N, M);			/* WH = (V./(W*H) */
-		div_total += (gettime() - division_t);
-
-		gemm_t = gettime();
 		WH_mult_Ht(d_Waux, d_WH, d_Htras, N, M, K);/* Waux =  {V./(W*H)} *H' */
-		gemm_total += (gettime() - gemm_t);
-
-		red_t = gettime();
 		accum(d_accH, d_Htras, M_pad, K);		/* Reducir a una columna */
-		red_total += (gettime() - red_t);
-
-		mulM_t = gettime();
 		mult_M_div_vect(d_W, d_Waux, d_accH, N, K);/* W = W .* Waux ./ accum_H */
-		mulM_total += (gettime() - mulM_t);
 	}
 	nmf_total += (gettime() - nmf_t);
 }
@@ -422,6 +398,7 @@ int main(int argc, char *argv[])
 	last_classification = new unsigned char[M];
 	consensus           = new unsigned char[M*(M-1)/2];
 
+	init_timers();
 	cublasInit();
 	cudaMalloc((void **)&d_V,      N*M_pad*sizeof(real));
 	cudaMemcpy(d_V, V,             N*M_pad*sizeof(real), cudaMemcpyHostToDevice);
@@ -508,12 +485,13 @@ int main(int argc, char *argv[])
 	/**********************************/
 	/**********************************/
 
+	nmf_total /= 1000;
 	std::cout << std::endl 
-			<< "Total NMF time = " << nmf_total << " (us) --> 100%" << std::endl
-			<< "    Gemm time = " << gemm_total << " (us) --> " << gemm_total/nmf_total*100 << "%" << std::endl
-			<< "    Division time = " << div_total << " (us) --> " << div_total/nmf_total*100 << "%" << std::endl
-			<< "    Reduction time = " << red_total << " (us) --> " << red_total/nmf_total*100 << "%" << std::endl
-			<< "    Dot product time = " << mulM_total << " (us) --> " << mulM_total/nmf_total*100 << "%" << std::endl;
+			<< "Total NMF time = " << nmf_total << " (ms) --> 100%" << std::endl
+			<< "    Gemm time = " << gemm_total << " (ms) --> " << gemm_total/nmf_total*100 << "%" << std::endl
+			<< "    Division time = " << div_total << " (ms) --> " << div_total/nmf_total*100 << "%" << std::endl
+			<< "    Reduction time = " << red_total << " (ms) --> " << red_total/nmf_total*100 << "%" << std::endl
+			<< "    Dot product time = " << mulM_total << " (ms) --> " << mulM_total/nmf_total*100 << "%" << std::endl;
 
 	printf("\n\n EXEC TIME %f (us).       N=%i M=%i K=%i Tests=%i (%lu)\n", time1-time0, N, M, K, nTests, sizeof(real));
 	printf("Final error %e \n", error);
@@ -523,6 +501,7 @@ int main(int argc, char *argv[])
 	writeSolution(W_best, Htras_best, consensus, N, M, K, nTests);
 
 	/* Free memory used */
+	delete_timers();
 	delete [] W;
 	delete [] Htras;
 	delete [] W_best;

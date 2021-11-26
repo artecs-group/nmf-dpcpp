@@ -1,10 +1,25 @@
 #include "kernels.h"
 #include "cublas.h"
 
-#define index(i, j, N)  ((i)*(N)) + (j)
+cudaEvent_t start, stop;
+float gemm_total{0}, div_total{0}, red_total{0}, mulM_total{0};
+
+
+void init_timers(){
+	cudaEventCreate(&start);
+	cudaEventCreate(&stop);
+}
+
+
+void delete_timers(){
+	cudaEventDestroy(start);
+	cudaEventDestroy(stop);
+}
+
 
 void W_mult_H(real *WH, real *W, real *Htras, int N, int M, int K)
 {
+	cudaEventRecord(start);
 	cublasRgemm( 'T', 'n', 
 		M,				/* [m] */ 
 		N,				/* [n] */  
@@ -15,6 +30,11 @@ void W_mult_H(real *WH, real *W, real *Htras, int N, int M, int K)
 		0,				/* beta */
 		WH, M				/* C[m][n], num columnas (ldc) */
 	);
+	cudaEventRecord(stop);
+	cudaEventSynchronize(stop);
+	float milliseconds{0};
+	cudaEventElapsedTime(&milliseconds, start, stop);
+	gemm_total += milliseconds;
 }
 
 
@@ -58,12 +78,19 @@ void V_div_WH( real* V, real* WH, int ny, int nx )
 	int b = ny % BLOCK_SIZE > 0 ? (ny/BLOCK_SIZE) + 1 : (ny/BLOCK_SIZE);
 	dim3 dimGrid(a, b);
 
+	cudaEventRecord(start);
 	V_div_WH_device<<<dimGrid, dimBlock>>>( V, WH, ny, nx );
+	cudaEventRecord(stop);
+	cudaEventSynchronize(stop);
+	float milliseconds{0};
+	cudaEventElapsedTime(&milliseconds, start, stop);
+	div_total += milliseconds;
 }
 
 
 void Wt_mult_WH( real *Haux, real *W, real *WH, int N, int M, int K)
 {
+	cudaEventRecord(start);
 	cublasRgemm( 'n', 'T', 
 		K,				/* [m] */ 
 		M,				/* [n] */  
@@ -74,10 +101,16 @@ void Wt_mult_WH( real *Haux, real *W, real *WH, int N, int M, int K)
 		0,				/* beta */
 		Haux, K			/* C[m][n], num columnas (ldc) */
 	);
+	cudaEventRecord(stop);
+	cudaEventSynchronize(stop);
+	float milliseconds{0};
+	cudaEventElapsedTime(&milliseconds, start, stop);
+	gemm_total += milliseconds;
 }
 
 void WH_mult_Ht( real *Waux, real *WH, real *Htras, int N, int M, int K)
 {
+	cudaEventRecord(start);
 	cublasRgemm( 'n', 'n', 
 		K,				/* [m] */ 
 		N,				/* [n] */  
@@ -88,6 +121,11 @@ void WH_mult_Ht( real *Waux, real *WH, real *Htras, int N, int M, int K)
 		0,				/* beta */
 		Waux, K			/* C[m][n], num columnas (ldc) */
 	);
+	cudaEventRecord(stop);
+	cudaEventSynchronize(stop);
+	float milliseconds{0};
+	cudaEventElapsedTime(&milliseconds, start, stop);
+	gemm_total += milliseconds;
 }
 
 __global__ void mult_M_div_vect_device(real *M, real *Maux, real *acc, int ny, int nx)
@@ -103,12 +141,18 @@ __global__ void mult_M_div_vect_device(real *M, real *Maux, real *acc, int ny, i
 
 void mult_M_div_vect(real *M, real *Maux, real *acc, int ny, int nx)
 {
+	cudaEventRecord(start);
 	dim3 dimBlock(BLOCK_SIZE, BLOCK_SIZE);
 	int a=nx/BLOCK_SIZE; if (nx % BLOCK_SIZE > 0) a++;
 	int b=ny/BLOCK_SIZE; if (ny % BLOCK_SIZE > 0) b++;
 	dim3 dimGrid(a,b);
 
 	mult_M_div_vect_device<<<dimGrid, dimBlock>>>( M, Maux, acc, ny, nx);
+	cudaEventRecord(stop);
+	cudaEventSynchronize(stop);
+	float milliseconds{0};
+	cudaEventElapsedTime(&milliseconds, start, stop);
+	mulM_total += milliseconds;
 }
 
 
@@ -145,30 +189,36 @@ __global__ void init_accum_device(real *acc)
 }
 
 
-__global__ void reduction_device(int n, int nx, int block_size, int threads, int block, real* acc, real* X)
+__global__ void reduction_device(int n, int nx, int block_size, int threads, real* acc, real* X)
 {
 	extern __shared__ real scratch[];
 	int local_id = threadIdx.x;
 	int block_id = blockIdx.x;
+	int blocks = 0;
 	int offset;
 	int global_id = local_id * (nx-1) + local_id + block_id;
 	int global_id_offset;
 	
-	offset = threads * block;
-	global_id_offset = global_id + offset;
+	for(int i = 0; i < n; i += block_size){
+		offset = threads * blocks;
+		global_id_offset = global_id + offset;
 
-	scratch[local_id] = X[global_id_offset];
+		scratch[local_id] = X[global_id_offset];
 
-	// Tree reduction
-	for(int j = (block_size >> 1); j > 0; j >>= 1) {
+		// Tree reduction
+		for(int j = block_size / 2; j > 0; j >>= 1) {
+			__syncthreads();
+
+			if(local_id < j)
+				scratch[local_id] += scratch[local_id + j];
+		}
+
+		if (local_id == 0)
+			acc[block_id] += scratch[0];
+		
+		blocks++;
 		__syncthreads();
-
-		if(local_id < j)
-			scratch[local_id] += scratch[local_id + j];
 	}
-
-	if (local_id == 0)
-		acc[block_id] += scratch[0];
 }
 
 
@@ -178,7 +228,14 @@ void accum( real* acc, real* X, int n, int nx)
 	int block_size = BLOCK_SIZE < nx ? BLOCK_SIZE : nx;
 	dim3 dimBlock1(block_size);
 	dim3 dimGrid1(nx);
+
+	cudaEventRecord(start);
 	init_accum_device<<<dimGrid1, dimBlock1>>>(acc);
+	cudaEventRecord(stop);
+	cudaEventSynchronize(stop);
+	float milliseconds{0};
+	cudaEventElapsedTime(&milliseconds, start, stop);
+	red_total += milliseconds;
 
 	// reduction
 	block_size = BLOCK_SIZE * BLOCK_SIZE;
@@ -187,11 +244,13 @@ void accum( real* acc, real* X, int n, int nx)
 	dim3 dimBlock2(block_size);
 	dim3 dimGrid2(threads);
 
-	int blocks = 0;
-	for(int i = 0; i < n; i += block_size){
-		reduction_device<<<dimGrid2, dimBlock2, block_size*sizeof(real)>>>(n, nx, block_size, threads, blocks, acc, X);
-		blocks++;
-	}
+	cudaEventRecord(start);
+	reduction_device<<<dimGrid2, dimBlock2, block_size*sizeof(real)>>>(n, nx, block_size, threads, acc, X);
+	cudaEventRecord(stop);
+	cudaEventSynchronize(stop);
+	milliseconds = 0;
+	cudaEventElapsedTime(&milliseconds, start, stop);
+	red_total += milliseconds;
 }
 
 // __global__ void init_accum_device( real *acc, real *X, int n, int nx)
@@ -214,21 +273,11 @@ void accum( real* acc, real* X, int n, int nx)
 // 	dim3 dimGrid(a);
 
 // 	/* Init acc with 0s */
-// #if 1
+// 	cudaEventRecord(start);
 // 	init_accum_device<<<dimGrid, dimBlock>>>( acc, X, n, nx);
-
-// #else
-// 	cublasRaxpy(nx,		/* n, num de elementos del vector*/
-// 		0.0,		/* alpha*/
-// 		acc, 1,		/* vector x, incx */
-// 		acc, 0		/* vector y, incy */ 		
-// 	);
-// 	for (int i=0; i<n; i++)
-// 		cublasRaxpy(nx,		/* n, num de elementos del vector*/
-// 			1,		/* alpha*/
-// 			X+i*nx, 1,	/* vector x, incx */
-// 			acc, 1		/* vector y, incy */ 		
-// 		);
-
-// #endif
+// 	cudaEventRecord(stop);
+// 	cudaEventSynchronize(stop);
+// 	float milliseconds{0};
+// 	cudaEventElapsedTime(&milliseconds, start, stop);
+// 	red_total += milliseconds;
 // }
