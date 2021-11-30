@@ -481,7 +481,7 @@ int main(int argc, char *argv[])
 			error_old = error;
 		}		
 	}
-	time1 = gettime();
+	time1 = (gettime() - time0)/1000;
 	/**********************************/
 	/**********************************/
 
@@ -493,7 +493,7 @@ int main(int argc, char *argv[])
 			<< "    Reduction time = " << red_total << " (ms) --> " << red_total/nmf_total*100 << "%" << std::endl
 			<< "    Dot product time = " << mulM_total << " (ms) --> " << mulM_total/nmf_total*100 << "%" << std::endl;
 
-	printf("\n\n EXEC TIME %f (us).       N=%i M=%i K=%i Tests=%i (%lu)\n", time1-time0, N, M, K, nTests, sizeof(real));
+	printf("\n\n EXEC TIME %f (ms).       N=%i M=%i K=%i Tests=%i (%lu)\n", time1, N, M, K, nTests, sizeof(real));
 	printf("Final error %e \n", error);
 
 
