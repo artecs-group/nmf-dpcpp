@@ -1,21 +1,18 @@
 #ifndef _KERNELS_H_
 #define _KERNELS_H_
 
+#include "../common.hpp"
+
 #ifdef REAL
-	#define real float
 	#define cublasRgemm cublasSgemm
 	#define cublasRaxpy cublasSaxpy
 #else
-	#define real double
 	#define cublasRgemm cublasDgemm
 	#define cublasRaxpy cublasDaxpy
 #endif
 
 #define BLOCK_SIZE 32
 //#define BLOCK_SIZE 16
-
-/* Spacing of realing point numbers. */
-#define EPS 2.2204e-16
 
 void init_timers();
 void delete_timers();

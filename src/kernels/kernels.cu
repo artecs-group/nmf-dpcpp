@@ -1,6 +1,9 @@
 #include "kernels.h"
 #include "cublas.h"
 
+/* Spacing of realing point numbers. */
+constexpr real EPS{2.2204e-16};
+
 cudaEvent_t start, stop;
 float gemm_total{0}, div_total{0}, red_total{0}, mulM_total{0};
 

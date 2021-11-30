@@ -1,38 +1,11 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <math.h>
-#include <cuda.h>
-#include "cublas.h"
-#include <sys/times.h>
-#include <time.h>
-#include <sys/time.h>
-#include <iostream>
+#include "common.hpp"
 #include "kernels/kernels.h"
 
-#define RANDOM
-#define verbose 0
-
-#ifdef REAL
-	#define real float
-	#define cblas_rgemm cblas_sgemm
-	#define cblas_rdot cblas_sdot
-	#define cblas_rcopy cblas_scopy
-	#define rmax(a,b) ( ( (a) > (b) )? (a) : (b) )
-	#define rsqrt sqrtf
-#else
-	#define real double
-	#define cblas_rgemm cblas_dgemm
-	#define cblas_rdot cblas_ddot
-	#define cblas_rcopy cblas_dcopy
-	#define rmax fmax
-	#define rsqrt sqrt
-#endif
-
 /* Number of iterations before testing convergence (can be adjusted) */
-#define NITER_TEST_CONV 10
+constexpr int NITER_TEST_CONV = 10;
 
 /* Spacing of floating point numbers. */
-real eps=2.2204e-16;
+constexpr real eps = 2.2204e-16;
 
 double nmf_t{0};
 double nmf_total{0};
@@ -40,8 +13,6 @@ extern float gemm_total;
 extern float div_total;
 extern float red_total;
 extern float mulM_total;
-
-void printMATRIX(real *m, int I, int J);
 
 
 inline int pow2roundup(int x) {
