@@ -11,8 +11,8 @@
 	#define cublasRaxpy cublasDaxpy
 #endif
 
-//#define BLOCK_SIZE 32
-#define BLOCK_SIZE 16
+#define BLOCK_SIZE 32
+//#define BLOCK_SIZE 16
 
 /* Spacing of realing point numbers. */
 #define EPS 2.2204e-16
