@@ -1,5 +1,5 @@
-# nmf-DPCpp
-Non-negative Matrix Factorization algorithm implemented in CUDA
+# Non-negative Matrix Factorization for CUDA
+The NMF algorithm implemented in CUDA
 
 ## Requirements
 To compile and launch the code you need to install the [CUDA Toolkit](https://developer.nvidia.com/cuda-toolkit).
