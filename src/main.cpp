@@ -452,19 +452,23 @@ int main(int argc, char *argv[])
 			error_old = error;
 		}		
 	}
-	time1 = (gettime() - time0)/1000;
+	time1 = (gettime() - time0);
+	gemm_total *= 1000;
+	div_total *= 1000;
+	red_total *= 1000;
+	mulM_total *= 1000;
 	/**********************************/
 	/**********************************/
 
-	nmf_total /= 1000;
+	//nmf_total /= 1000;
 	std::cout << std::endl 
-			<< "Total NMF time = " << nmf_total << " (ms) --> 100%" << std::endl
-			<< "    Gemm time = " << gemm_total << " (ms) --> " << gemm_total/nmf_total*100 << "%" << std::endl
-			<< "    Division time = " << div_total << " (ms) --> " << div_total/nmf_total*100 << "%" << std::endl
-			<< "    Reduction time = " << red_total << " (ms) --> " << red_total/nmf_total*100 << "%" << std::endl
-			<< "    Dot product time = " << mulM_total << " (ms) --> " << mulM_total/nmf_total*100 << "%" << std::endl;
+			<< "Total NMF time = " << nmf_total << " (us) --> 100%" << std::endl
+			<< "    Gemm time = " << gemm_total << " (us) --> " << gemm_total/nmf_total*100 << "%" << std::endl
+			<< "    Division time = " << div_total << " (us) --> " << div_total/nmf_total*100 << "%" << std::endl
+			<< "    Reduction time = " << red_total << " (us) --> " << red_total/nmf_total*100 << "%" << std::endl
+			<< "    Dot product time = " << mulM_total << " (us) --> " << mulM_total/nmf_total*100 << "%" << std::endl;
 
-	printf("\n\n EXEC TIME %f (ms).       N=%i M=%i K=%i Tests=%i (%lu)\n", time1, N, M, K, nTests, sizeof(real));
+	printf("\n\n EXEC TIME %f (us).       N=%i M=%i K=%i Tests=%i (%lu)\n", time1, N, M, K, nTests, sizeof(real));
 	printf("Final error %e \n", error);
 
 

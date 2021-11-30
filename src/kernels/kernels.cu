@@ -41,20 +41,52 @@ void W_mult_H(real *WH, real *W, real *Htras, int N, int M, int K)
 }
 
 
-__global__ void V_div_WH_device( real* V, real* WH, int ny, int nx)
+// __global__ void V_div_WH_device( real* V, real* WH, int ny, int nx)
+// {
+// 	int id = blockIdx.x * blockDim.x + threadIdx.x;
+// 	WH[id] = V[id] / WH[id];
+// }
+
+
+// void V_div_WH( real* V, real* WH, int ny, int nx )
+// {
+// 	int block_size = BLOCK_SIZE * BLOCK_SIZE;
+// 	block_size = block_size < nx ? block_size : nx;
+// 	int remainder = nx - block_size; // calculate how many cells are omitted by the block bound
+// 	remainder = (int) ceil(remainder / block_size); // calculate how many block we need to reach the entire size
+// 	int grid_size = (nx == block_size) ? ny : ny + remainder;
+
+// 	dim3 dimBlock(block_size);
+// 	dim3 dimGrid(grid_size);
+
+// 	cudaEventRecord(start);
+// 	V_div_WH_device<<<dimGrid, dimBlock>>>( V, WH, ny, nx );
+// 	cudaEventRecord(stop);
+// 	cudaEventSynchronize(stop);
+// 	float milliseconds{0};
+// 	cudaEventElapsedTime(&milliseconds, start, stop);
+// 	div_total += milliseconds;
+// }
+
+
+__global__ void V_div_WH_device( real* V, real* WH, int ny, int nx )
 {
-	int id = blockIdx.x * blockDim.x + threadIdx.x;
-	WH[id] = V[id] / WH[id];
+	int idx = blockIdx.x*blockDim.x+threadIdx.x;
+	int idy = blockIdx.y*blockDim.y+threadIdx.y;
+	int id = idy*nx+idx;
+
+	// Make sure we do not go out of bounds
+	if (idx<nx && idy<ny)
+		WH[id] = V[id]/WH[id];
 }
 
 
 void V_div_WH( real* V, real* WH, int ny, int nx )
 {
-	int block_size = BLOCK_SIZE * BLOCK_SIZE;
-	block_size = block_size < nx ? block_size : nx;
-
-	dim3 dimBlock(block_size);
-	dim3 dimGrid(ny);
+	dim3 dimBlock(BLOCK_SIZE, BLOCK_SIZE);
+	int a = nx % BLOCK_SIZE > 0 ? (nx/BLOCK_SIZE) + 1 : (nx/BLOCK_SIZE);
+	int b = ny % BLOCK_SIZE > 0 ? (ny/BLOCK_SIZE) + 1 : (ny/BLOCK_SIZE);
+	dim3 dimGrid(a, b);
 
 	cudaEventRecord(start);
 	V_div_WH_device<<<dimGrid, dimBlock>>>( V, WH, ny, nx );
