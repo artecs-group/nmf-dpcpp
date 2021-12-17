@@ -1,4 +1,4 @@
-# nmf-DPCpp
+# Non-negative Matrix Factorization for DPC++
 Non-negative Matrix Factorization algorithm implemented in DPC++
 
 ## Requirements
@@ -37,12 +37,6 @@ To sufficient splitting to balance load, use:
 For changing the backend where the device executes, you can use "SYCL_DEVICE_FILTER" variables, for example:
 
 `export SYCL_DEVICE_FILTER=gpu,level_zero`
-
-## Publications
-
-* Igual, Francisco D., et al. "Non-negative matrix factorization on low-power architectures and accelerators: A comparative study." Computers & Electrical Engineering 46 (2015): 139-156.
-
-    * [Available here](https://www.sciencedirect.com/science/article/abs/pii/S0045790615001287)
 
 ## Acknowledgements
 
