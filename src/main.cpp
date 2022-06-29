@@ -360,7 +360,7 @@ int main(int argc, char *argv[]) {
 
     printf("file=%s\nN=%i M=%i K=%i nTests=%i stop_threshold=%i\n", file_name, N, M, K, nTests, stop_threshold);
 
-#if defined(INTEL_IGPU_DEVICE)
+#if defined(INTEL_GPU_DEVICE)
 	IntelGPUSelector selector{};
 #elif defined(NVIDIA_DEVICE)
 	CUDASelector selector{};

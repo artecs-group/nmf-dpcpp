@@ -8,21 +8,21 @@ constexpr C_REAL eps{2.2204e-16};
 
 void W_mult_H(queue q, C_REAL *WH, C_REAL *W, C_REAL *Htras, int N, int M, int K) 
 {
-    oneapi::mkl::blas::gemm(q, transA, transB, M, N, K, 1, Htras, K, W, K, 0, WH, M);
+    oneapi::mkl::blas::column_major::gemm(q, transA, transB, M, N, K, 1, Htras, K, W, K, 0, WH, M);
     q.wait();
 }
 
 
 void Wt_mult_WH(queue q, C_REAL *Haux, C_REAL *W, C_REAL *WH, int N, int M, int K) 
 {
-     oneapi::mkl::blas::gemm(q, transB, transA, K, M, N, 1, W, K, WH, M, 0, Haux, K);
+     oneapi::mkl::blas::column_major::gemm(q, transB, transA, K, M, N, 1, W, K, WH, M, 0, Haux, K);
      q.wait();
 }
 
 
 void WH_mult_Ht(queue q, C_REAL *Waux, C_REAL *WH, C_REAL *Htras, int N, int M, int K) 
 {
-    oneapi::mkl::blas::gemm(q, transB, transB, K, N, M, 1, Htras, K, WH, M, 0, Waux, K);
+    oneapi::mkl::blas::column_major::gemm(q, transB, transB, K, N, M, 1, Htras, K, WH, M, 0, Waux, K);
     q.wait();
 }
 
@@ -51,10 +51,10 @@ void adjust_WH(queue q, C_REAL *W, C_REAL *Ht, int N, int M, int K) {
 }
 
 
-void V_div_WH3(queue q, C_REAL *V, C_REAL *WH, int N, int M) {
-    oneapi::mkl::vm::div(q, N*M, V, WH, WH);
-    q.wait();
-}
+// void V_div_WH3(queue q, C_REAL *V, C_REAL *WH, int N, int M) {
+//     oneapi::mkl::vm::div(q, N*M, V, WH, WH);
+//     q.wait();
+// }
 
 
 void V_div_WH(queue q, C_REAL *V, C_REAL *WH, int N, int M) {
