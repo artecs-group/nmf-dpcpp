@@ -1,5 +1,4 @@
-# nmf-openmp
-Non-negative Matrix Factorization algorithm implemented in OpenMP
+# Non-negative Matrix Factorization for OpenMP
 
 ## Run
 Use the 'OMP_TARGET_OFFLOAD' env variable to run over GPU, and the 'LIBOMPTARGET_PLUGIN' for selecting the backend.
@@ -21,3 +20,6 @@ In order to get GPU debug profiling set:
 `export LIBOMPTARGET_INFO=2`
 
 `export LIBOMPTARGET_PROFILE=T`
+
+## Acknowledgements
+This work has been supported by the EU (FEDER) and the Spanish MINECO and CM under grants S2018/TCS-4423 and RTI2018-093684-B-I00.

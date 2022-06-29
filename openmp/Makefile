@@ -38,15 +38,15 @@ ifeq ($(OPTIMIZE),yes)
   CFLAGS += -O3
 endif
 
-main: main.o
-	$(CC) $(CFLAGS) $(CLINK) main.o -o main 
+nmf: main.o
+	$(CC) $(CFLAGS) $(CLINK) main.o -o nmf 
 
 main.o: ./main.cpp ./common.h
 	$(CC) $(CFLAGS) main.cpp -c -o main.o
 
-run: main
-	./main V.bin 5000 38 2 1 20
+run: nmf
+	./nmf ../data/V.bin 5000 38 2 1 20
 
 .PHONY: clean
 clean:
-	rm -f main solution-NMFLeeSeung_* *.o ./nmf/*.o
+	rm -f nmf solution-NMFLeeSeung_* *.o ./nmf/*.o
