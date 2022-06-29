@@ -1,7 +1,7 @@
 #ifndef _KERNELS_H_
 #define _KERNELS_H_
 
-#include "../common.hpp"
+#include "../common.cuh"
 
 #ifdef REAL
 	#define cublasRgemm cublasSgemm

@@ -1,4 +1,4 @@
-#include "kernels.h"
+#include "kernels.cuh"
 #include "cublas.h"
 
 /* Spacing of realing point numbers. */

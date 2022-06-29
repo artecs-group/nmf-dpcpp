@@ -1,5 +1,4 @@
 # Non-negative Matrix Factorization for CUDA
-The NMF algorithm implemented in CUDA
 
 ## Requirements
 To compile and launch the code you need to install the [CUDA Toolkit](https://developer.nvidia.com/cuda-toolkit).
@@ -23,4 +22,7 @@ Once you copile it, you will get the nmf executable. This binary takes the follo
 
 An example to run it could be:
 
-`./nmf V.bin 1000 500 4 1 10`
+`./nmf ../data/V.bin 1000 500 4 1 10`
+
+## Acknowledgements
+This work has been supported by the EU (FEDER) and the Spanish MINECO and CM under grants S2018/TCS-4423 and RTI2018-093684-B-I00.

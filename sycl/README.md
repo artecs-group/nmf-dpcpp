@@ -24,7 +24,7 @@ Once you copile it, you will get the nmf executable. This binary takes the follo
 
 An example to run it could be:
 
-`./nmf V.bin 1000 500 4 1 10`
+`./nmf ../data/V.bin 1000 500 4 1 10`
 
 Running on a hyper-threding CPU could reduce performance, to disable it you can use the following variable set to the number of phisical cores on the CPU.
 

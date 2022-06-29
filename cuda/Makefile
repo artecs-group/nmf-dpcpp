@@ -10,7 +10,6 @@ ifeq ($(REAL),double)
 endif
 
 # Default compiler and flags
-CXX = g++
 NVCC = nvcc
 CFLAGS = -D$(PREAL) -I/usr/local/cuda/include -lcuda -lcublas
 CLINK = -L/usr/local/cuda/lib64 -lcudart
@@ -26,17 +25,17 @@ ifeq ($(OPTIMIZE),yes)
 endif
 
 nmf: main.o ./kernels/kernels.o
-	$(CXX) -o nmf main.o ./kernels/kernels.o $(CFLAGS) $(CLINK)
+	$(NVCC) -o nmf main.o ./kernels/kernels.o $(CFLAGS) $(CLINK)
 
-main.o: ./kernels/kernels.o main.cpp
-	$(CXX) -fpermissive $(CFLAGS) main.cpp -c -o main.o
+main.o: ./kernels/kernels.o main.cu
+	$(NVCC) $(CFLAGS) main.cu -c -o main.o
 
-./kernels/kernels.o: ./kernels/kernels.cu ./kernels/kernels.h
+./kernels/kernels.o: ./kernels/kernels.cu ./kernels/kernels.cuh
 	$(NVCC) $(CFLAGS) ./kernels/kernels.cu -c -o ./kernels/kernels.o
 
 
 run: nmf
-	./nmf V.bin 5000 38 2 1 10
+	./nmf ..data/V.bin 5000 38 2 1 10
 
 .PHONY: clean
 clean:

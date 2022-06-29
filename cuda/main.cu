@@ -1,11 +1,8 @@
-#include "common.hpp"
-#include "kernels/kernels.h"
+#include "common.cuh"
+#include "kernels/kernels.cuh"
 
 /* Number of iterations before testing convergence (can be adjusted) */
 constexpr int NITER_TEST_CONV = 10;
-
-/* Spacing of floating point numbers. */
-constexpr real eps = 2.2204e-16;
 
 double nmf_t{0};
 double nmf_total{0};
@@ -54,9 +51,6 @@ void matrix_copy2D(real *in, real *out, int nx, int ny) {
 void initWH(real *W, real *Htras, int N, int M, int K, int N_pad, int M_pad)
 {
 	int seedi = 0;
-	int size_W = N*K;
-	int size_H = M*K;
-	
 	/* Generated random values between 0.00 - 1.00 */
 	// FILE *fd;
 	// fd = fopen("/dev/urandom", "r");
@@ -71,6 +65,8 @@ void initWH(real *W, real *Htras, int N, int M, int K, int N_pad, int M_pad)
 		Htras[i] = ((real)(rand()))/((real) RAND_MAX);
 
 #ifndef RANDOM
+	int size_W = N*K;
+	int size_H = M*K;
 	/* Added to debug */
 	FILE *fIn = fopen("w_bin.bin", "r");;
 	fread(W, sizeof(real), size_W, fIn);
@@ -304,20 +300,11 @@ int main(int argc, char *argv[])
 {
 	int nTests, niters;
 
-	int i,j;
-	real obj;
-
 	real *V;
 	real *W, *W_best;
 	real *Htras, *Htras_best;
 	unsigned char *classification, *last_classification;
 	unsigned char *consensus; /* upper half-matrix size M*(M-1)/2 */
-
-	/* Auxiliares para el computo */
-	real *WH;
-	real *Haux, *Waux;
-	real *acumm_W;
-	real *acumm_H;
 	
 	//For GPU
 	real *d_V;
@@ -336,6 +323,8 @@ int main(int argc, char *argv[])
 	char file_name[255];
 	int iter;
 	int diff, inc;
+	int device_id{0};
+	cudaDeviceProp gpu_props;
 	
 	double time0, time1;
 	double timeGPU2CPU, timeGPU1, timeGPU0;
@@ -359,6 +348,9 @@ int main(int argc, char *argv[])
 	stop_threshold = atoi(argv[6]);
 
 	printf("file=%s\nN=%i M=%i K=%i nTests=%i stop_threshold=%i\n", file_name, N, M, K, nTests, stop_threshold);
+
+	cudaGetDeviceProperties(&gpu_props, device_id);
+    std::cout << "Running on \"" << gpu_props.name << "\" under CUDA." << std::endl << std::endl;
 
 	V          = getV(file_name, N, M_pad);
 	W          = new real[N_pad*K];
