@@ -53,7 +53,7 @@ main.o: ./kernels/kernels.o main.cpp common.hpp
 
 
 run: nmf
-	./nmf V.bin 5000 38 2 1 20
+	./nmf ../data/V.bin 5000 38 2 1 20
 
 .PHONY: clean
 clean:
