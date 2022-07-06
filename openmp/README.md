@@ -1,5 +1,8 @@
 # Non-negative Matrix Factorization for OpenMP
 
+## Requirements
+To compile and launch the code you need to install the [Nvidia HPC SDK](https://developer.nvidia.com/nvidia-hpc-sdk-downloads) as well as the [Intel oneAPI](https://software.intel.com/content/www/us/en/develop/tools/oneapi.html).
+
 ## Run
 Use the 'OMP_TARGET_OFFLOAD' env variable to run over GPU, and the 'LIBOMPTARGET_PLUGIN' for selecting the backend.
 

@@ -8,19 +8,36 @@
 #include <iostream>
 #include <math.h>
 #include <string.h>
-#include "mkl.h"
 #include <omp.h>
+
+#ifdef NVIDIA_GPU_DEVICE
+#include "cublas.h"
+#else
+#include "mkl.h"
 #include "mkl_omp_offload.h"
+#endif
 
 #define RANDOM
 //#define DEBUG
 
 #ifdef REAL_S
 #define C_REAL float
-#define cblas_rgemm cblas_sgemm
 #else
 #define C_REAL double
-#define cblas_rgemm cblas_dgemm
+#endif
+
+#ifdef NVIDIA_GPU_DEVICE
+    #ifdef REAL_S
+    #define cblas_rgemm cublasSgemm
+    #else
+    #define cblas_rgemm cublasDgemm
+    #endif
+#else
+    #ifdef REAL_S
+    #define cblas_rgemm cblas_sgemm
+    #else
+    #define cblas_rgemm cblas_dgemm
+    #endif
 #endif
 
 #endif
