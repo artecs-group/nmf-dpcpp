@@ -275,7 +275,7 @@ void gpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 
 		/* WH = W*H */
 		gemm_t = gettime();
-		#pragma omp target variant dispatch //use_device_ptr(W, Htras, WH)
+		#pragma omp target variant dispatch use_device_ptr(W, Htras, WH)
 		{
 			cblas_rgemm(CblasRowMajor, CblasNoTrans, CblasTrans, 
 				N,				/* [m] */ 
@@ -294,10 +294,6 @@ void gpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 		#pragma omp target teams distribute parallel for simd num_teams(EU) thread_limit(thread_limit)
 		for(int i = 0; i < N*M; i++)
 			WH[i] = V[i] / WH[i]; /* V./(W*H) */
-		// #pragma omp target variant dispatch use_device_ptr(V, WH)
-		// {
-		// 	vsDiv(N*M, V, WH, WH);
-		// }
 
 		div_total += (gettime() - division_t);
 
@@ -317,7 +313,7 @@ void gpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 		red_total += (gettime() - red_t);
 
 		gemm_t = gettime();
-		#pragma omp target variant dispatch //use_device_ptr(W, WH, Haux)
+		#pragma omp target variant dispatch use_device_ptr(W, WH, Haux)
 		{
 			cblas_rgemm(CblasColMajor, CblasNoTrans, CblasTrans,
 				K,				/* [m] */
@@ -347,7 +343,7 @@ void gpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 
 		/* WH = W*H */
 		gemm_t = gettime();
-		#pragma omp target variant dispatch //use_device_ptr(W, Htras, WH)
+		#pragma omp target variant dispatch use_device_ptr(W, Htras, WH)
 		{
 			cblas_rgemm( CblasRowMajor, CblasNoTrans, CblasTrans, 
 				N,				/* [m] */ 
@@ -366,17 +362,13 @@ void gpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 		#pragma omp target teams distribute parallel for simd num_teams(EU) thread_limit(thread_limit)
 		for(int i = 0; i < N*M; i++)
 			WH[i] = V[i] / WH[i]; /* V./(W*H) */
-		// #pragma omp target variant dispatch use_device_ptr(V, WH)
-		// {
-		// 	vsDiv(N*M, V, WH, WH);
-		// }
 
 		div_total += (gettime() - division_t);
 
 		/* Waux =  {V./(W*H)} *H' */
 		/* W = W .* Waux ./ accum_H */
 		gemm_t = gettime();
-		#pragma omp target variant dispatch //use_device_ptr(WH, Htras, Waux)
+		#pragma omp target variant dispatch use_device_ptr(WH, Htras, Waux)
 		{
 			cblas_rgemm( CblasRowMajor, CblasNoTrans, CblasNoTrans, 
 				N,				/* [m] */ 
