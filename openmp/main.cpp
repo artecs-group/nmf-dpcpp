@@ -244,7 +244,7 @@ void adjust_WH(C_REAL *W, C_REAL *Ht, int N, int M, int K) {
 }
 
 
-void gpu_nmf(int niter, C_REAL *V, C_REAL *WH, 
+void gpu_nmf(int deviceId, int niter, C_REAL *V, C_REAL *WH, 
 	C_REAL *W, C_REAL *Htras, C_REAL *Waux, C_REAL *Haux,
 	C_REAL *acumm_W, C_REAL *acumm_H, int N, int M, int K)
 {
@@ -265,7 +265,7 @@ void gpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 	nmf_t = gettime();
 
 #pragma omp target enter data map(alloc:WH[0:N*M], Waux[0:N*K], Haux[0:M*K], acumm_W[0:K], acumm_H[0:K]) \
-	map(to:W[0:N*K], Htras[0:M*K], V[0:N*M])
+	map(to:W[0:N*K], Htras[0:M*K], V[0:N*M]) device(deviceId)
 	{
 	for (int iter = 0; iter < niter; iter++) {
 	
@@ -276,7 +276,7 @@ void gpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 		/* WH = W*H */
 		gemm_t = gettime();
 #if defined(NVIDIA_GPU_DEVICE)
-		#pragma omp target data use_device_ptr(W, Htras, WH)
+		#pragma omp target data use_device_ptr(W, Htras, WH) device(deviceId)
 		{
 			cblas_rgemm( 'T', 'n', 
 				M,				/* [m] */ 
@@ -290,7 +290,7 @@ void gpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 			);
 		}
 #else
-		#pragma omp target variant dispatch use_device_ptr(W, Htras, WH)
+		#pragma omp target variant dispatch use_device_ptr(W, Htras, WH) device(deviceId)
 		{
 			cblas_rgemm(CblasRowMajor, CblasNoTrans, CblasTrans, 
 				N,				/* [m] */ 
@@ -307,7 +307,7 @@ void gpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 		gemm_total += (gettime() - gemm_t);
 
 		division_t = gettime();
-		#pragma omp target teams distribute parallel for simd num_teams(EU) thread_limit(thread_limit)
+		#pragma omp target teams distribute parallel for simd num_teams(EU) thread_limit(thread_limit) device(deviceId)
 		for(int i = 0; i < N*M; i++)
 			WH[i] = V[i] / WH[i]; /* V./(W*H) */
 
@@ -315,13 +315,13 @@ void gpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 
 		red_t = gettime();
 		/* Reducir a una columna */
-		#pragma omp target teams distribute parallel for simd
+		#pragma omp target teams distribute parallel for simd device(deviceId)
 		for(int i = 0; i < K; i++) {
 			acumm_W[i] = 0;
 		}
 
 		for (int j = 0; j < K; j++){
-			#pragma omp target teams distribute parallel for simd reduction(+:acumm_W[j]) map(to:j)
+			#pragma omp target teams distribute parallel for simd reduction(+:acumm_W[j]) map(to:j) device(deviceId)
 			for (int i = 0; i < N; i++) {
 				acumm_W[j] += W[i*K + j];
 			}
@@ -330,7 +330,7 @@ void gpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 
 		gemm_t = gettime();
 #if defined(NVIDIA_GPU_DEVICE)
-		#pragma omp target data use_device_ptr(W, WH, Haux)
+		#pragma omp target data use_device_ptr(W, WH, Haux) device(deviceId)
 		{
 			cblas_rgemm( 'n', 'T', 
 				K,				/* [m] */ 
@@ -344,7 +344,7 @@ void gpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 			);
 		}
 #else
-		#pragma omp target variant dispatch use_device_ptr(W, WH, Haux)
+		#pragma omp target variant dispatch use_device_ptr(W, WH, Haux) device(deviceId)
 		{
 			cblas_rgemm(CblasColMajor, CblasNoTrans, CblasTrans,
 				K,				/* [m] */
@@ -361,7 +361,7 @@ void gpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 		gemm_total += (gettime() - gemm_t);
 
 		mulM_t = gettime();
-		#pragma omp target teams distribute parallel for simd
+		#pragma omp target teams distribute parallel for simd device(deviceId)
 		for (int j = 0; j < M; j++) {
 			for (int i = 0; i < K; i++) {
 				Htras[j*K + i] = Htras[j*K + i] * Haux[j*K + i] / acumm_W[i]; /* H = H .* (Haux) ./ accum_W */
@@ -376,7 +376,7 @@ void gpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 		/* WH = W*H */
 		gemm_t = gettime();
 #if defined(NVIDIA_GPU_DEVICE)
-		#pragma omp target data use_device_ptr(W, Htras, WH)
+		#pragma omp target data use_device_ptr(W, Htras, WH) device(deviceId)
 		{
 			cblas_rgemm( 'T', 'n', 
 				M,				/* [m] */ 
@@ -390,7 +390,7 @@ void gpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 			);
 		}
 #else
-		#pragma omp target variant dispatch use_device_ptr(W, Htras, WH)
+		#pragma omp target variant dispatch use_device_ptr(W, Htras, WH) device(deviceId)
 		{
 			cblas_rgemm( CblasRowMajor, CblasNoTrans, CblasTrans, 
 				N,				/* [m] */ 
@@ -407,7 +407,7 @@ void gpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 		gemm_total += (gettime() - gemm_t);
 
 		division_t = gettime();
-		#pragma omp target teams distribute parallel for simd num_teams(EU) thread_limit(thread_limit)
+		#pragma omp target teams distribute parallel for simd num_teams(EU) thread_limit(thread_limit) device(deviceId)
 		for(int i = 0; i < N*M; i++)
 			WH[i] = V[i] / WH[i]; /* V./(W*H) */
 
@@ -417,7 +417,7 @@ void gpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 		/* W = W .* Waux ./ accum_H */
 		gemm_t = gettime();
 #if defined(NVIDIA_GPU_DEVICE)
-		#pragma omp target data use_device_ptr(WH, Htras, Waux)
+		#pragma omp target data use_device_ptr(WH, Htras, Waux) device(deviceId)
 		{
 			cblas_rgemm( 'n', 'n', 
 				K,				/* [m] */ 
@@ -431,7 +431,7 @@ void gpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 			);
 		}
 #else
-		#pragma omp target variant dispatch use_device_ptr(WH, Htras, Waux)
+		#pragma omp target variant dispatch use_device_ptr(WH, Htras, Waux) device(deviceId)
 		{
 			cblas_rgemm( CblasRowMajor, CblasNoTrans, CblasNoTrans, 
 				N,				/* [m] */ 
@@ -449,13 +449,13 @@ void gpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 
 		/* Reducir a una columna */
 		red_t = gettime();
-		#pragma omp target teams distribute parallel for simd
+		#pragma omp target teams distribute parallel for simd device(deviceId)
 		for(int i = 0; i < K; i++) {
 			acumm_H[i] = 0;
 		}
 
 		for (int j = 0; j < K; j++){
-			#pragma omp target teams distribute parallel for simd reduction(+:acumm_H[j]) map(to:j)
+			#pragma omp target teams distribute parallel for simd reduction(+:acumm_H[j]) map(to:j) device(deviceId)
 			for (int i = 0; i < M; i++) {
 				acumm_H[j] += Htras[i*K + j];
 			}
@@ -463,7 +463,7 @@ void gpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 		red_total += (gettime() - red_t);
 
 		mulM_t = gettime();
-		#pragma omp target teams distribute parallel for simd
+		#pragma omp target teams distribute parallel for simd device(deviceId)
 		for (int i = 0; i < N; i++) {
 			for (int j = 0; j < K; j++) {
 				W[i*K + j] = W[i*K + j] * Waux[i*K + j] / acumm_H[j]; /* W = W .* Waux ./ accum_H */
@@ -472,13 +472,13 @@ void gpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 		mulM_total += (gettime() - mulM_t);
 	}
 	}
-	#pragma omp target exit data map(from:W[0:N*K], Htras[0:M*K])
+	#pragma omp target exit data map(from:W[0:N*K], Htras[0:M*K]) device(deviceId)
 
 	nmf_total += (gettime() - nmf_t);
 }
 
 
-void cpu_nmf(int niter, C_REAL *V, C_REAL *WH, 
+void cpu_nmf(int deviceId, int niter, C_REAL *V, C_REAL *WH, 
 	C_REAL *W, C_REAL *Htras, C_REAL *Waux, C_REAL *Haux,
 	C_REAL *acumm_W, C_REAL *acumm_H, int N, int M, int K)
 {
@@ -704,7 +704,7 @@ int main(int argc, char *argv[]) {
 			iter++;
 
 			/* Main Proccess of NMF Brunet */
-			nmf(NITER_TEST_CONV, V, WH, W, 
+			nmf(deviceId, NITER_TEST_CONV, V, WH, W, 
 				Htras, Waux, Haux, acumm_W, acumm_H,
 				N, M, K);
 

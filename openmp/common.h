@@ -46,11 +46,11 @@
 #define nmf cpu_nmf
 #endif
 
-void gpu_nmf(int niter, C_REAL *V, C_REAL *WH, 
+void gpu_nmf(int deviceId, int niter, C_REAL *V, C_REAL *WH, 
 	C_REAL *W, C_REAL *Htras, C_REAL *Waux, C_REAL *Haux,
 	C_REAL *acumm_W, C_REAL *acumm_H, int N, int M, int K);
 
-void cpu_nmf(int niter, C_REAL *V, C_REAL *WH, 
+void cpu_nmf(int deviceId, int niter, C_REAL *V, C_REAL *WH, 
 	C_REAL *W, C_REAL *Htras, C_REAL *Waux, C_REAL *Haux,
 	C_REAL *acumm_W, C_REAL *acumm_H, int N, int M, int K);
 
