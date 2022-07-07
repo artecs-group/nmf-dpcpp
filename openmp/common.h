@@ -40,4 +40,18 @@
     #endif
 #endif
 
+#ifdef GPU_DEVICE
+#define nmf gpu_nmf
+#else
+#define nmf cpu_nmf
+#endif
+
+void gpu_nmf(int niter, C_REAL *V, C_REAL *WH, 
+	C_REAL *W, C_REAL *Htras, C_REAL *Waux, C_REAL *Haux,
+	C_REAL *acumm_W, C_REAL *acumm_H, int N, int M, int K);
+
+void cpu_nmf(int niter, C_REAL *V, C_REAL *WH, 
+	C_REAL *W, C_REAL *Htras, C_REAL *Waux, C_REAL *Haux,
+	C_REAL *acumm_W, C_REAL *acumm_H, int N, int M, int K);
+
 #endif

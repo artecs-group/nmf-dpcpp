@@ -16,7 +16,7 @@ You can also choose the number of threads to launch in CPU with the variable 'KM
 
 
 ## Debug
-In order to get GPU debug profiling set:
+In order to get Intel GPU debug profiling set:
 
 `export LIBOMPTARGET_DEBUG=1`
 
