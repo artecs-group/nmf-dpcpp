@@ -27,7 +27,7 @@ ifeq ($(DEVICE),igpu)
 else ifeq ($(DEVICE),nvidia)
   PDEVICE = $(NVIDIA)
   CC = nvc++
-  CFLAGS = -DGPU_DEVICE -D$(PDEVICE) -D$(PREAL) -I/usr/local/cuda/include -lcuda -lcublas -fopenmp -mp=gpu -gpu=cc61
+  CFLAGS = -DGPU_DEVICE -D$(PDEVICE) -D$(PREAL) -I/usr/local/cuda/include -lcuda -lcublas -fopenmp -mp=gpu
   CLINK  = -L/usr/local/cuda/lib64 -lcudart
 else
   CFLAGS += -xhost
