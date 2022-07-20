@@ -23,4 +23,24 @@
 #define cblas_rgemm cblas_dgemm
 #endif
 
+#if defined(NVIDIA_GPU_DEVICE)
+	#define nmf nvidia_nmf
+#elif defined(INTEL_GPU_DEVICE)
+    #define nmf intel_gpu_nmf
+#else
+    #define nmf cpu_nmf
+#endif
+
+void cpu_nmf(int niter, C_REAL *V, C_REAL *WH, 
+	C_REAL *W, C_REAL *Htras, C_REAL *Waux, C_REAL *Haux,
+	C_REAL *acumm_W, C_REAL *acumm_H, int N, int M, int K);
+
+void nvidia_nmf(int deviceId, int niter, C_REAL *V, C_REAL *WH, 
+	C_REAL *W, C_REAL *Htras, C_REAL *Waux, C_REAL *Haux,
+	C_REAL *acumm_W, C_REAL *acumm_H, int N, int M, int K);
+
+void intel_gpu_nmf(int deviceId, int niter, C_REAL *V, C_REAL *WH, 
+	C_REAL *W, C_REAL *Htras, C_REAL *Waux, C_REAL *Haux,
+	C_REAL *acumm_W, C_REAL *acumm_H, int N, int M, int K);
+
 #endif
