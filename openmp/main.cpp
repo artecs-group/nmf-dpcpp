@@ -289,7 +289,6 @@ void intel_gpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 				WH, M			/* C[m][n], num columnas (ldc) */
 			);
 		}
-#endif
 		gemm_total += (gettime() - gemm_t);
 
 		division_t = gettime();
@@ -328,7 +327,6 @@ void intel_gpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 				Haux, K			/* C[m][n], num columnas (ldc) */
 			);
 		}
-#endif
 		gemm_total += (gettime() - gemm_t);
 
 		mulM_t = gettime();
@@ -359,7 +357,6 @@ void intel_gpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 				WH, M			/* C[m][n], num columnas (ldc) */
 			);
 		}
-#endif
 		gemm_total += (gettime() - gemm_t);
 
 		division_t = gettime();
@@ -385,7 +382,6 @@ void intel_gpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 				Waux, K			/* C[m][n], num columnas (ldc) */
 			);
 		}
-#endif
 		gemm_total += (gettime() - gemm_t);
 
 		/* Reducir a una columna */
@@ -721,7 +717,6 @@ void cpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 		mulM_total += (gettime() - mulM_t);
 	}
 	nmf_total += (gettime() - nmf_t);
-#endif
 }
 #endif
 
