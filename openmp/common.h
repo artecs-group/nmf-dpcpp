@@ -8,19 +8,22 @@
 #include <iostream>
 #include <math.h>
 #include <string.h>
-#include "mkl.h"
 #include <omp.h>
+
+#ifdef NVIDIA_GPU_DEVICE
+#include "cublas.h"
+#else
+#include "mkl.h"
 #include "mkl_omp_offload.h"
+#endif
 
 #define RANDOM
 //#define DEBUG
 
 #ifdef REAL_S
 #define C_REAL float
-#define cblas_rgemm cblas_sgemm
 #else
 #define C_REAL double
-#define cblas_rgemm cblas_dgemm
 #endif
 
 #if defined(NVIDIA_GPU_DEVICE)
@@ -35,11 +38,11 @@ void cpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 	C_REAL *W, C_REAL *Htras, C_REAL *Waux, C_REAL *Haux,
 	C_REAL *acumm_W, C_REAL *acumm_H, int N, int M, int K);
 
-void nvidia_nmf(int deviceId, int niter, C_REAL *V, C_REAL *WH, 
+void nvidia_nmf(int niter, C_REAL *V, C_REAL *WH, 
 	C_REAL *W, C_REAL *Htras, C_REAL *Waux, C_REAL *Haux,
 	C_REAL *acumm_W, C_REAL *acumm_H, int N, int M, int K);
 
-void intel_gpu_nmf(int deviceId, int niter, C_REAL *V, C_REAL *WH, 
+void intel_gpu_nmf(int niter, C_REAL *V, C_REAL *WH, 
 	C_REAL *W, C_REAL *Htras, C_REAL *Waux, C_REAL *Haux,
 	C_REAL *acumm_W, C_REAL *acumm_H, int N, int M, int K);
 

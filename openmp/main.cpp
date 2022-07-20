@@ -245,7 +245,7 @@ void adjust_WH(C_REAL *W, C_REAL *Ht, int N, int M, int K) {
 
 
 #if defined(INTEL_GPU_DEVICE)
-void intel_gpu_nmf(int deviceId, int niter, C_REAL *V, C_REAL *WH, 
+void intel_gpu_nmf(int niter, C_REAL *V, C_REAL *WH, 
 	C_REAL *W, C_REAL *Htras, C_REAL *Waux, C_REAL *Haux,
 	C_REAL *acumm_W, C_REAL *acumm_H, int N, int M, int K)
 {
@@ -289,10 +289,11 @@ void intel_gpu_nmf(int deviceId, int niter, C_REAL *V, C_REAL *WH,
 				WH, M			/* C[m][n], num columnas (ldc) */
 			);
 		}
+#endif
 		gemm_total += (gettime() - gemm_t);
 
 		division_t = gettime();
-		#pragma omp target teams distribute parallel for simd num_teams(EU) thread_limit(thread_limit)
+		#pragma omp target teams distribute parallel for simd num_teams(EU) thread_limit(thread_limit) device(deviceId)
 		for(int i = 0; i < N*M; i++)
 			WH[i] = V[i] / WH[i]; /* V./(W*H) */
 
@@ -300,13 +301,13 @@ void intel_gpu_nmf(int deviceId, int niter, C_REAL *V, C_REAL *WH,
 
 		red_t = gettime();
 		/* Reducir a una columna */
-		#pragma omp target teams distribute parallel for simd
+		#pragma omp target teams distribute parallel for simd device(deviceId)
 		for(int i = 0; i < K; i++) {
 			acumm_W[i] = 0;
 		}
 
 		for (int j = 0; j < K; j++){
-			#pragma omp target teams distribute parallel for simd reduction(+:acumm_W[j]) map(to:j)
+			#pragma omp target teams distribute parallel for simd reduction(+:acumm_W[j]) map(to:j) device(deviceId)
 			for (int i = 0; i < N; i++) {
 				acumm_W[j] += W[i*K + j];
 			}
@@ -327,10 +328,11 @@ void intel_gpu_nmf(int deviceId, int niter, C_REAL *V, C_REAL *WH,
 				Haux, K			/* C[m][n], num columnas (ldc) */
 			);
 		}
+#endif
 		gemm_total += (gettime() - gemm_t);
 
 		mulM_t = gettime();
-		#pragma omp target teams distribute parallel for simd
+		#pragma omp target teams distribute parallel for simd device(deviceId)
 		for (int j = 0; j < M; j++) {
 			for (int i = 0; i < K; i++) {
 				Htras[j*K + i] = Htras[j*K + i] * Haux[j*K + i] / acumm_W[i]; /* H = H .* (Haux) ./ accum_W */
@@ -357,10 +359,11 @@ void intel_gpu_nmf(int deviceId, int niter, C_REAL *V, C_REAL *WH,
 				WH, M			/* C[m][n], num columnas (ldc) */
 			);
 		}
+#endif
 		gemm_total += (gettime() - gemm_t);
 
 		division_t = gettime();
-		#pragma omp target teams distribute parallel for simd num_teams(EU) thread_limit(thread_limit)
+		#pragma omp target teams distribute parallel for simd num_teams(EU) thread_limit(thread_limit) device(deviceId)
 		for(int i = 0; i < N*M; i++)
 			WH[i] = V[i] / WH[i]; /* V./(W*H) */
 
@@ -382,17 +385,18 @@ void intel_gpu_nmf(int deviceId, int niter, C_REAL *V, C_REAL *WH,
 				Waux, K			/* C[m][n], num columnas (ldc) */
 			);
 		}
+#endif
 		gemm_total += (gettime() - gemm_t);
 
 		/* Reducir a una columna */
 		red_t = gettime();
-		#pragma omp target teams distribute parallel for simd
+		#pragma omp target teams distribute parallel for simd device(deviceId)
 		for(int i = 0; i < K; i++) {
 			acumm_H[i] = 0;
 		}
 
 		for (int j = 0; j < K; j++){
-			#pragma omp target teams distribute parallel for simd reduction(+:acumm_H[j]) map(to:j)
+			#pragma omp target teams distribute parallel for simd reduction(+:acumm_H[j]) map(to:j) device(deviceId)
 			for (int i = 0; i < M; i++) {
 				acumm_H[j] += Htras[i*K + j];
 			}
@@ -400,7 +404,7 @@ void intel_gpu_nmf(int deviceId, int niter, C_REAL *V, C_REAL *WH,
 		red_total += (gettime() - red_t);
 
 		mulM_t = gettime();
-		#pragma omp target teams distribute parallel for simd
+		#pragma omp target teams distribute parallel for simd device(deviceId)
 		for (int i = 0; i < N; i++) {
 			for (int j = 0; j < K; j++) {
 				W[i*K + j] = W[i*K + j] * Waux[i*K + j] / acumm_H[j]; /* W = W .* Waux ./ accum_H */
@@ -417,7 +421,7 @@ void intel_gpu_nmf(int deviceId, int niter, C_REAL *V, C_REAL *WH,
 
 
 #if defined(NVIDIA_GPU_DEVICE)
-void nvidia_nmf(int deviceId, int niter, C_REAL *V, C_REAL *WH, 
+void nvidia_nmf(int niter, C_REAL *V, C_REAL *WH, 
 	C_REAL *W, C_REAL *Htras, C_REAL *Waux, C_REAL *Haux,
 	C_REAL *acumm_W, C_REAL *acumm_H, int N, int M, int K)
 {
@@ -595,6 +599,8 @@ void cpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 	/*                                   */
 	/*************************************/
 
+// Avoid nvidia compiler incompatibilities
+#if defined(CPU_DEVICE)
 	nmf_t = gettime();
 	for (int iter = 0; iter < niter; iter++) {
 	
@@ -715,6 +721,7 @@ void cpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 		mulM_total += (gettime() - mulM_t);
 	}
 	nmf_total += (gettime() - nmf_t);
+#endif
 }
 #endif
 
