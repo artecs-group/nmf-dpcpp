@@ -129,8 +129,8 @@ void print_WH(C_REAL *W, C_REAL *Htras, int N, int M, int K) {
 }
 
 
-C_REAL *get_V(int N, int M, char* file_name, queue q) {
-	C_REAL *V = malloc_shared<C_REAL>(N * M, q);
+C_REAL *get_V(int N, int M, char* file_name) {
+	C_REAL* V = new C_REAL[N * M];
 
 #ifndef RANDOM
 	FILE *fIn = fopen(file_name, "r");
@@ -257,9 +257,9 @@ void writeSolution(C_REAL *W, C_REAL*Ht, unsigned char *consensus, int N, int M,
 }
 
 
-void nmf(int niter, queue q, C_REAL *V, C_REAL *WH, 
-	C_REAL *W, C_REAL *Htras, C_REAL *Waux, C_REAL *Haux,
-	C_REAL *accW, C_REAL *accH, int N, int M, int K, int N_pad, int M_pad)
+void nmf(int niter, queue q, buffer<C_REAL, 1> &V, buffer<C_REAL, 1> &WH, 
+	buffer<C_REAL, 1> &W, buffer<C_REAL, 1> &Htras, buffer<C_REAL, 1> &Waux, buffer<C_REAL, 1> &Haux,
+	buffer<C_REAL, 1> &accW, buffer<C_REAL, 1> &accH, int N, int M, int K, int N_pad, int M_pad)
 {
 	/*************************************/
 	/*                                   */
@@ -372,22 +372,32 @@ int main(int argc, char *argv[]) {
 
 	sycl::queue q{selector};
 	std::cout << "Running on " << q.get_device().get_info<sycl::info::device::name>() << std::endl;
+	const property_list props = property::buffer::use_host_ptr();
 
-	V            	  = get_V(N, M_pad, file_name, q);
-	W                 = malloc_shared<C_REAL>(N_pad * K, q);
-	Htras             = malloc_shared<C_REAL>(M_pad * K, q);
-	WH                = malloc_device<C_REAL>(N * M_pad, q);
+	V            	  = get_V(N, M_pad, file_name);
+	W                 = new C_REAL[N_pad * K];
+	Htras             = new C_REAL[M_pad * K];
+	WH                = new C_REAL[N * M_pad];
 
-	Haux              = malloc_device<C_REAL>(M * K, q);
-	Waux              = malloc_device<C_REAL>(N * K, q);
-	acumm_W           = malloc_device<C_REAL>(K, q);
-	acumm_H           = malloc_device<C_REAL>(K, q);
+	Haux              = new C_REAL[M * K];
+	Waux              = new C_REAL[N * K];
+	acumm_W           = new C_REAL[K];
+	acumm_H           = new C_REAL[K];
 
-    W_best              = malloc_host<C_REAL>(N * K, q);
-    Htras_best          = malloc_host<C_REAL>(M * K, q);
-    classification      = malloc_host<unsigned char>(M, q);
-	last_classification = malloc_host<unsigned char>(M, q);
-	consensus           = malloc_host<unsigned char>(M*(M-1)/2, q);
+    W_best              = new C_REAL[N * K];
+    Htras_best          = new C_REAL[M * K];
+    classification      = new unsigned char[M];
+	last_classification = new unsigned char[M];
+	consensus           = new unsigned char[M*(M-1)/2];
+
+    buffer<C_REAL, 1> b_V(V, N * M_pad, props);
+    buffer<C_REAL, 1> b_W(W, N_pad * K, props);
+    buffer<C_REAL, 1> b_Htras(Htras, M_pad * K, props);
+    buffer<C_REAL, 1> b_WH(WH, N * M_pad, props);
+    buffer<C_REAL, 1> b_Haux(Haux, M * K, props);
+    buffer<C_REAL, 1> b_Waux(Waux, N * K, props);
+    buffer<C_REAL, 1> b_acumm_W(acumm_W, K, props);
+    buffer<C_REAL, 1> b_acumm_H(acumm_H, K, props);
 
 	/**********************************/
 	/******     MAIN PROGRAM     ******/
@@ -407,12 +417,12 @@ int main(int argc, char *argv[]) {
 			iter++;
 
 			/* Main Proccess of NMF Brunet */
-			nmf(NITER_TEST_CONV, q, V, WH, W, 
-				Htras, Waux, Haux, acumm_W, acumm_H,
+			nmf(NITER_TEST_CONV, q, b_V, b_WH, b_W, 
+				b_Htras, b_Waux, b_Haux, b_acumm_W, b_acumm_H,
 				N, M, K, N_pad, M_pad);
 
 			/* Adjust small values to avoid undeflow: h=max(h,eps);w=max(w,eps); */
-			adjust_WH(q, W, Htras, N, M, K);
+			adjust_WH(q, b_W, b_Htras, N, M, K);
 
 			/* Test of convergence: construct connectivity matrix */
 			get_classification(Htras, classification, M, K);
@@ -465,19 +475,19 @@ int main(int argc, char *argv[]) {
 	//printMATRIX(W_best, N, K);
 
     /* Free memory used */
-	free(V, q);
-	free(W, q);
-	free(Htras, q);
-	free(WH, q);
-	free(Haux, q);
-	free(Waux, q);
-	free(acumm_W, q);
-	free(acumm_H, q);
-	free(W_best, q);
-	free(Htras_best, q);
-	free(classification, q);
-	free(last_classification, q);
-	free(consensus, q);
+	delete[] V;
+	delete[] W;
+	delete[] Htras;
+	delete[] WH;
+	delete[] Haux;
+	delete[] Waux;
+	delete[] acumm_W;
+	delete[] acumm_H;
+	delete[] W_best;
+	delete[] Htras_best;
+	delete[] classification;
+	delete[] last_classification;
+	delete[] consensus;
 
 	return 0;
 }
