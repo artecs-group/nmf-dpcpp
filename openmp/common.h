@@ -10,7 +10,7 @@
 #include <string.h>
 #include <omp.h>
 
-#ifdef defined(NVIDIA_GPU_DEVICE)
+#if defined(NVIDIA_GPU_DEVICE)
 #include "cublas.h"
 #else
 #include "mkl.h"
