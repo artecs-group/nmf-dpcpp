@@ -26,6 +26,20 @@
 #define C_REAL double
 #endif
 
+#ifdef NVIDIA_GPU_DEVICE
+    #ifdef REAL_S
+    #define cblas_rgemm cublasSgemm
+    #else
+    #define cblas_rgemm cublasDgemm
+    #endif
+#else
+    #ifdef REAL_S
+    #define cblas_rgemm cblas_sgemm
+    #else
+    #define cblas_rgemm cblas_dgemm
+    #endif
+#endif
+
 #if defined(NVIDIA_GPU_DEVICE)
 	#define nmf nvidia_nmf
 #elif defined(INTEL_GPU_DEVICE)
