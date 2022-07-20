@@ -595,8 +595,6 @@ void cpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 	/*                                   */
 	/*************************************/
 
-// Avoid nvidia compiler incompatibilities
-#if defined(CPU_DEVICE)
 	nmf_t = gettime();
 	for (int iter = 0; iter < niter; iter++) {
 	
