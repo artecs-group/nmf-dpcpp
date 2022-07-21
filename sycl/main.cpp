@@ -36,14 +36,15 @@ void matrix_copy1D_uchar(unsigned char *in, unsigned char *out, int nx) {
 }
 
 
-void matrix_copy2D(C_REAL *in, C_REAL *out, int nx, int ny) {
+void matrix_copy2D(buffer<C_REAL, 1> &b_in, C_REAL *out, int nx, int ny) {
+	auto in = b_in.get_access<sycl_read>();
 	for (int i = 0; i < nx; i++)
 		for(int j = 0; j < ny; j++)
 			out[i*ny + j] = in[i*ny + j];
 }
 
 
-void initWH(C_REAL *W, C_REAL *Htras, int N, int M, int K, int N_pad, int M_pad) {	
+void initWH(buffer<C_REAL, 1> &b_W, buffer<C_REAL, 1> &b_Htras, int N, int M, int K, int N_pad, int M_pad) {	
 	// int seedi;
 	// FILE *fd;
 
@@ -53,6 +54,8 @@ void initWH(C_REAL *W, C_REAL *Htras, int N, int M, int K, int N_pad, int M_pad)
 	// fclose(fd);
 	// srand(seedi);
 	srand(0);
+	auto Htras = b_Htras.get_access<sycl_read_write>();
+	auto W = b_W.get_access<sycl_read_write>();
 
 	for (int i = 0; i < N*K; i++)
 		W[i] = ((C_REAL)(rand())) / ((C_REAL) RAND_MAX);
@@ -75,8 +78,13 @@ void initWH(C_REAL *W, C_REAL *Htras, int N, int M, int K, int N_pad, int M_pad)
 	fclose(fIn);
 #endif
 
-	std::fill(W + (N*K), W + (N_pad*K), 0);
-	std::fill(Htras + (M*K), Htras + (M_pad*K), 0);
+	for(int i = N*K; i < N_pad*K; i++)
+		W[i] = 0;
+
+	for(int i = M*K; i < M_pad*K; i++)
+		Htras[i] = 0;
+	// std::fill(W + (N*K), W + (N_pad*K), 0);
+	// std::fill(Htras + (M*K), Htras + (M_pad*K), 0);
 }
 
 
@@ -184,8 +192,9 @@ void get_consensus(unsigned char *classification, unsigned char *consensus, int 
 
 
 /* Obtain the classification vector from the Ht matrix */
-void get_classification(C_REAL *Htras, unsigned char *classification, int M, int K) {
+void get_classification(buffer<C_REAL, 1> &b_Htras, unsigned char *classification, int M, int K) {
 	C_REAL max;
+	auto Htras = b_Htras.get_access<sycl_read>();
 	
 	for (int i = 0; i < M; i++) {
 		max = 0.0;
@@ -198,7 +207,7 @@ void get_classification(C_REAL *Htras, unsigned char *classification, int M, int
 }
 
 
-C_REAL get_Error(C_REAL *V, C_REAL *W, C_REAL *Htras, int N, int M, int K) {
+C_REAL get_Error(buffer<C_REAL, 1> &b_V, buffer<C_REAL, 1> &b_W, buffer<C_REAL, 1> &b_Htras, int N, int M, int K) {
 	/*
 	* norm( V-WH, 'Frobenius' ) == sqrt( sum( diag( (V-WH)'* (V-WH) ) )
 	* norm( V-WH, 'Frobenius' )**2 == sum( diag( (V-WH)'* (V-WH) ) )
@@ -217,6 +226,10 @@ C_REAL get_Error(C_REAL *V, C_REAL *W, C_REAL *Htras, int N, int M, int K) {
 	*/
 	C_REAL error = 0.0;
 	C_REAL Vnew;
+
+	auto V = b_V.get_access<sycl_read>();
+	auto W = b_W.get_access<sycl_read>();
+	auto Htras = b_Htras.get_access<sycl_read>();
 
 	for(int i = 0; i < N; i++) {
 		for(int j = 0; j < M; j++){
@@ -406,7 +419,7 @@ int main(int argc, char *argv[]) {
 
 	for(int test = 0; test < nTests; test++) {
 		/* Init W and H */
-		initWH(W, Htras, N, M, K, N_pad, M_pad);
+		initWH(b_W, b_Htras, N, M, K, N_pad, M_pad);
 
 		niters = 2000 / NITER_TEST_CONV;
 
@@ -425,7 +438,7 @@ int main(int argc, char *argv[]) {
 			adjust_WH(q, b_W, b_Htras, N, M, K);
 
 			/* Test of convergence: construct connectivity matrix */
-			get_classification(Htras, classification, M, K);
+			get_classification(b_Htras, classification, M, K);
 
 			diff = get_difference(classification, last_classification, M);
 			matrix_copy1D_uchar(classification, last_classification, M);
@@ -447,11 +460,11 @@ int main(int argc, char *argv[]) {
 		get_consensus(classification, consensus, M);
 
 		/* Get variance of the method error = |V-W*H| */
-		error = get_Error(V, W, Htras, N, M, K);
+		error = get_Error(b_V, b_W, b_Htras, N, M, K);
 		if (error < error_old) {
 			printf("Better W and H, Error %e Test=%i, Iter=%i\n", error, test, iter);
-			matrix_copy2D(W, W_best, N, K);
-			matrix_copy2D(Htras, Htras_best, M, K);
+			matrix_copy2D(b_W, W_best, N, K);
+			matrix_copy2D(b_Htras, Htras_best, M, K);
 			error_old = error;
 		}
 	}
