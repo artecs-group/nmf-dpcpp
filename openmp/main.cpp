@@ -292,7 +292,7 @@ void intel_gpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 		gemm_total += (gettime() - gemm_t);
 
 		division_t = gettime();
-		#pragma omp target teams distribute parallel for simd num_teams(EU) thread_limit(thread_limit) device(deviceId)
+		#pragma omp target teams distribute parallel for simd num_teams(EU) thread_limit(thread_limit)
 		for(int i = 0; i < N*M; i++)
 			WH[i] = V[i] / WH[i]; /* V./(W*H) */
 
@@ -300,13 +300,13 @@ void intel_gpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 
 		red_t = gettime();
 		/* Reducir a una columna */
-		#pragma omp target teams distribute parallel for simd device(deviceId)
+		#pragma omp target teams distribute parallel for simd
 		for(int i = 0; i < K; i++) {
 			acumm_W[i] = 0;
 		}
 
 		for (int j = 0; j < K; j++){
-			#pragma omp target teams distribute parallel for simd reduction(+:acumm_W[j]) map(to:j) device(deviceId)
+			#pragma omp target teams distribute parallel for simd reduction(+:acumm_W[j]) map(to:j)
 			for (int i = 0; i < N; i++) {
 				acumm_W[j] += W[i*K + j];
 			}
@@ -330,7 +330,7 @@ void intel_gpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 		gemm_total += (gettime() - gemm_t);
 
 		mulM_t = gettime();
-		#pragma omp target teams distribute parallel for simd device(deviceId)
+		#pragma omp target teams distribute parallel for simd
 		for (int j = 0; j < M; j++) {
 			for (int i = 0; i < K; i++) {
 				Htras[j*K + i] = Htras[j*K + i] * Haux[j*K + i] / acumm_W[i]; /* H = H .* (Haux) ./ accum_W */
@@ -360,7 +360,7 @@ void intel_gpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 		gemm_total += (gettime() - gemm_t);
 
 		division_t = gettime();
-		#pragma omp target teams distribute parallel for simd num_teams(EU) thread_limit(thread_limit) device(deviceId)
+		#pragma omp target teams distribute parallel for simd num_teams(EU) thread_limit(thread_limit)
 		for(int i = 0; i < N*M; i++)
 			WH[i] = V[i] / WH[i]; /* V./(W*H) */
 
@@ -386,13 +386,13 @@ void intel_gpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 
 		/* Reducir a una columna */
 		red_t = gettime();
-		#pragma omp target teams distribute parallel for simd device(deviceId)
+		#pragma omp target teams distribute parallel for simd
 		for(int i = 0; i < K; i++) {
 			acumm_H[i] = 0;
 		}
 
 		for (int j = 0; j < K; j++){
-			#pragma omp target teams distribute parallel for simd reduction(+:acumm_H[j]) map(to:j) device(deviceId)
+			#pragma omp target teams distribute parallel for simd reduction(+:acumm_H[j]) map(to:j)
 			for (int i = 0; i < M; i++) {
 				acumm_H[j] += Htras[i*K + j];
 			}
@@ -400,7 +400,7 @@ void intel_gpu_nmf(int niter, C_REAL *V, C_REAL *WH,
 		red_total += (gettime() - red_t);
 
 		mulM_t = gettime();
-		#pragma omp target teams distribute parallel for simd device(deviceId)
+		#pragma omp target teams distribute parallel for simd
 		for (int i = 0; i < N; i++) {
 			for (int j = 0; j < K; j++) {
 				W[i*K + j] = W[i*K + j] * Waux[i*K + j] / acumm_H[j]; /* W = W .* Waux ./ accum_H */
