@@ -30,7 +30,7 @@ else ifeq ($(DEVICE),nvidia)
   CFLAGS = -DGPU_DEVICE -D$(PDEVICE) -D$(PREAL) -I/usr/local/cuda/include -lcuda -lcublas -fopenmp -mp=gpu
   CLINK  = -L/usr/local/cuda/lib64 -lcudart
 else
-  CFLAGS += -xhost
+  CFLAGS += -xhost # set: -march=core-avx2 for AMD processor
 endif
 
 # Debug Flags
